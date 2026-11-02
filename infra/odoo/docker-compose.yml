@@ -1,0 +1,28 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: proyectopatrones-postgres
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: odoo
+      POSTGRES_PASSWORD: change-me-local
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+  odoo:
+    image: odoo:20.0
+    container_name: proyectopatrones-odoo
+    depends_on:
+      - postgres
+    ports:
+      - "8069:8069"
+    environment:
+      HOST: postgres
+      USER: odoo
+      PASSWORD: change-me-local
+    volumes:
+      - odoo_data:/var/lib/odoo
+    restart: unless-stopped
+volumes:
+  postgres_data:
+  odoo_data:
