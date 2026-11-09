@@ -56,7 +56,7 @@ public sealed class OdooJson2Client(HttpClient httpClient, OdooJson2Options opti
 
             try
             {
-                var result = await response.Content.ReadFromJsonAsync<TResponse>(JsonOptions, cancellationToken);
+                var result = await response.Content.ReadFromJsonAsync<TResponse>(JsonOptions, timeout.Token);
                 return result ?? throw new OdooIntegrationException(
                     "Odoo devolvió una respuesta vacía; el resultado de la operación es desconocido.",
                     outcomeMayHaveBeenApplied: true, response.StatusCode);
