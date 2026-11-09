@@ -8,7 +8,9 @@ var checks = new (string Name, Func<Task> Run)[]
     ("envia POST JSON-2 con autenticacion y base configurada", SendsExpectedRequest),
     ("rechaza respuestas HTTP de Odoo sin indicar exito", RejectsHttpError),
     ("marca los errores 5xx como resultado incierto", MarksServerErrorUncertain),
+
     ("marca los timeouts como resultado incierto", MarksTimeoutUncertain),
+    ("cancela la lectura de una respuesta con cuerpo lento", MarksSlowResponseBodyTimeoutUncertain),
     ("rechaza rutas de modelo o metodo manipuladas", RejectsInvalidPath),
     ("valida configuracion obligatoria", ValidatesOptions)
 };
@@ -100,5 +102,63 @@ sealed class DelayedHandler : HttpMessageHandler
     {
         await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
         throw new InvalidOperationException("La espera debia cancelarse por timeout.");
+    }
+}
+
+
+static async Task MarksSlowResponseBodyTimeoutUncertain()
+{
+    var client = new OdooJson2Client(
+        new HttpClient(new SlowBodyHandler()) { BaseAddress = new Uri("https://odoo.example/") },
+        new OdooJson2Options
+        {
+            BaseUrl = "https://odoo.example", Database = "pos_demo", ApiKey = "local-test-key",
+            TimeoutSeconds = 1, UserAgent = "ProyectoPatrones.ContractChecks/1.0"
+        });
+
+    var call = client.CallAsync<string>("pos.order", "create", new { });
+    var completed = await Task.WhenAny(call, Task.Delay(TimeSpan.FromSeconds(3)));
+    Assert(ReferenceEquals(completed, call), "El timeout debe cancelar la lectura después de recibir los headers.");
+
+    var exception = await Expect<OdooIntegrationException>(() => call);
+    Assert(exception.OutcomeMayHaveBeenApplied, "El timeout al leer el cuerpo debe dejar el resultado como incierto.");
+}
+
+sealed class SlowBodyHandler : HttpMessageHandler
+{
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        var content = new StreamContent(new SlowBodyStream());
+        content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+        return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content });
+    }
+}
+
+sealed class SlowBodyStream : Stream
+{
+    public override bool CanRead => true;
+    public override bool CanSeek => false;
+    public override bool CanWrite => false;
+    public override long Length => throw new NotSupportedException();
+    public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+    public override void Flush() { }
+    public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+    public override void SetLength(long value) => throw new NotSupportedException();
+    public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+    public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+    {
+        await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+        return 0;
+    }
+
+    public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) =>
+        WaitForCancellationAsync(cancellationToken);
+
+    private static async Task<int> WaitForCancellationAsync(CancellationToken cancellationToken)
+    {
+        await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+        return 0;
     }
 }
