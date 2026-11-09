@@ -31,8 +31,7 @@ static async Task SendsExpectedRequest()
         method = request.Method.Method; path = request.RequestUri?.AbsolutePath;
         scheme = request.Headers.Authorization?.Scheme; key = request.Headers.Authorization?.Parameter;
         database = request.Headers.GetValues("X-Odoo-Database").Single();
-        bodyText = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
-        return JsonResponse("{"id":42}");
+        bodyText = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();        return JsonResponse(JsonSerializer.Serialize(new { id = 42 }));
     });
     var response = await CreateClient(handler).CallAsync<Dictionary<string, int>>("res.partner", "search_read", new { limit = 1 });
     Assert(response["id"] == 42, "No se deserializó la respuesta.");
