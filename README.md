@@ -37,11 +37,19 @@ docs/          Plan, especificación y decisiones de diseño
 
 1. Instalar .NET 10 SDK, Node.js, Docker y Git.
 2. Copiar `.env.example` como `.env` y completar valores solo localmente.
-3. Levantar Odoo/PostgreSQL desde `infra/odoo`.
+3. Levantar Odoo/PostgreSQL desde `infra/odoo`; ver sus instrucciones en `infra/odoo/README.md`.
 4. Configurar productos, impuestos, punto de venta, sesión y pago efectivo en Odoo.
-5. Ejecutar la API y el frontend con las instrucciones que se añadirán en `backend/README.md` y `frontend/README.md`.
+5. Ejecutar la API y el frontend según `backend/README.md` y `frontend/README.md`.
 6. Ejecutar las pruebas con los comandos publicados en `tests/README.md`.
 
 ## Estado de integración
 
 La integración real de ventas y pagos no se considera comprobada hasta registrar una operación contra la instancia local de Odoo y conservar respuesta HTTP, trazas sanitizadas e identificadores verificables. No se debe presentar un simulador como una operación real.
+
+## Aporte de Lara: Odoo, infraestructura y calidad
+
+- Adaptador HTTP tipado para Odoo JSON-2 con API key de servidor, validación de configuración y errores con resultado incierto para timeouts/HTTP 5xx.
+- Docker Compose de Odoo 20 y PostgreSQL 16 con variables locales y espera de salud de PostgreSQL.
+- Verificaciones locales del contrato HTTP y workflow de GitHub Actions.
+- Decisiones documentadas sobre integración, descuentos e idempotencia. Las políticas de descuentos e idempotencia permanecen como propuestas pendientes de implementación en Application.
+- La venta completa, el registro de pago y P09 requieren el host API, el contrato validado por el equipo y una instancia real de Odoo.
