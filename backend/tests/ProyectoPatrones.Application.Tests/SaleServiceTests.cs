@@ -46,6 +46,17 @@ public sealed class SaleServiceTests
     }
 
     [Fact]
+    public async Task Rejects_customer_that_does_not_exist_in_odoo()
+    {
+        var (service, gateway) = CreateService();
+        gateway.CustomerExists = false;
+        var error = await Assert.ThrowsAsync<ApplicationException>(() => service.CreateAsync(
+            "missing-customer", Request([new(1, 1, 10)]), TestContext.Current.CancellationToken));
+        Assert.Equal("customer.not_found", error.Code);
+        Assert.Equal(0, gateway.CreateCalls);
+    }
+
+    [Fact]
     public async Task P05_Does_not_claim_success_when_Odoo_fails()
     {
         var (service, gateway) = CreateService();
@@ -125,9 +136,14 @@ public sealed class SaleServiceTests
     {
         public bool SessionOpen { get; init; } = true;
         public bool ProductAvailable { get; init; } = true;
+        public bool CustomerExists { get; set; } = true;
         public int CreateCalls { get; private set; }
         public Exception? CreateError { get; set; }
         public Task<PosSessionDto?> GetActiveSessionAsync(CancellationToken ct) => Task.FromResult<PosSessionDto?>(new(100, "Main", SessionOpen, [new(200, "Cash")]));
+        public Task<CustomerDto?> FindCustomerAsync(CustomerRequest customer, CancellationToken ct) =>
+            Task.FromResult(CustomerExists
+                ? new CustomerDto(300, customer.Name ?? "Customer", customer.Identification, customer.Email)
+                : null);
         public Task<IReadOnlyDictionary<long, ProductDto>> GetProductsByIdsAsync(IReadOnlyCollection<long> ids, CancellationToken ct) => Task.FromResult<IReadOnlyDictionary<long, ProductDto>>(ids.ToDictionary(x => x, x => new ProductDto(x, $"P{x}", "Product", 10, ProductAvailable)));
         public Task<Sale> CreateSaleAsync(Sale sale, CancellationToken ct)
         {

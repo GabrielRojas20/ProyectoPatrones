@@ -45,6 +45,8 @@ $hash = [Security.Cryptography.Rfc2898DeriveBytes]::Pbkdf2($plain, $salt, 210000
 
 Todos salvo login requieren JWT. Los errores usan `ProblemDetails` con `code` y `traceId`. Las validaciones cubren fecha actual, cédula, correo, nombre, sesión, pago, disponibilidad, precio vigente, cantidades, descuento y confirmación real.
 
+Cuando la solicitud incluye `Customer`, el backend busca un único `res.partner` activo por cédula; si la cédula no fue proporcionada usa el correo y, en último caso, el nombre. Después envía su `partner_id` a la orden POS. Si no existe o la coincidencia es ambigua, la venta se rechaza con `422 customer.not_found`. El historial filtra el parámetro `name` mediante `partner_id.name`; el parámetro `id` continúa buscando el número o referencia de la orden.
+
 ## Idempotencia
 
 Las respuestas confirmadas se conservan en `Idempotency__FilePath` para sobrevivir reinicios. La misma clave y el mismo cuerpo devuelven el resultado anterior; la misma clave con otro cuerpo devuelve `409 idempotency.key_reused`. El archivo local no se versiona. Para despliegues con varias réplicas debe sustituirse por un almacén SQL compartido o una operación atómica equivalente.
