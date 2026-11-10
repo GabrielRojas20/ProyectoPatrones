@@ -66,6 +66,17 @@ public sealed class SaleServiceTests
     }
 
     [Fact]
+    public async Task Reused_key_with_different_sale_is_rejected()
+    {
+        var (service, gateway) = CreateService();
+        await service.CreateAsync("conflicting-key", Request([new(1, 1, 10)]), TestContext.Current.CancellationToken);
+        var error = await Assert.ThrowsAsync<ApplicationException>(() => service.CreateAsync(
+            "conflicting-key", Request([new(1, 2, 10)]), TestContext.Current.CancellationToken));
+        Assert.Equal("idempotency.key_reused", error.Code);
+        Assert.Equal(1, gateway.CreateCalls);
+    }
+
+    [Fact]
     public async Task Rejects_price_changed_by_Odoo()
     {
         var (service, gateway) = CreateService();
@@ -96,8 +107,19 @@ public sealed class SaleServiceTests
     private sealed class MemoryStore : IIdempotencyStore
     {
         private readonly Dictionary<string, SaleResult> _items = [];
-        public Task<SaleResult?> GetAsync(string key, CancellationToken ct) => Task.FromResult(_items.GetValueOrDefault(key));
-        public Task SaveAsync(string key, SaleResult result, CancellationToken ct) { _items[key] = result; return Task.CompletedTask; }
+        private readonly Dictionary<string, string> _fingerprints = [];
+        public Task<SaleResult?> GetAsync(string key, string requestFingerprint, CancellationToken ct)
+        {
+            if (_fingerprints.TryGetValue(key, out var existing) && existing != requestFingerprint)
+                throw new ApplicationException("idempotency.key_reused", "conflict", 409);
+            return Task.FromResult(_items.GetValueOrDefault(key));
+        }
+        public Task SaveAsync(string key, string requestFingerprint, SaleResult result, CancellationToken ct)
+        {
+            _fingerprints[key] = requestFingerprint;
+            _items[key] = result;
+            return Task.CompletedTask;
+        }
     }
     private sealed class FakeGateway : IOdooGateway
     {
