@@ -89,8 +89,16 @@ public sealed partial class SaleService(
 
             SaleRules.ValidateLines(lines);
             var total = lines.Sum(x => x.Subtotal);
+            SaleCustomer? customer = null;
+            if (request.Customer is { } requestedCustomer)
+            {
+                var partner = await gateway.FindCustomerAsync(requestedCustomer, ct);
+                if (partner is null)
+                    throw new ApplicationException("customer.not_found", "El cliente no existe en Odoo; selecciónelo o regístrelo antes de vender.", 422);
+                customer = new SaleCustomer(partner.Id, partner.Name, partner.Identification, partner.Email);
+            }
             var pending = new Sale(Guid.NewGuid().ToString("N"), request.OperationDate, session.Id,
-                request.PaymentMethodId, lines, SaleStatus.Pending, total, null, null);
+                request.PaymentMethodId, lines, customer, SaleStatus.Pending, total, null, null);
 
             Sale confirmed;
             try { confirmed = await gateway.CreateSaleAsync(pending, ct); }

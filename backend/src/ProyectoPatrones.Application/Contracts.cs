@@ -14,6 +14,7 @@ public sealed record LoginRequest(string Username, string Password);
 public sealed record LoginResponse(string AccessToken, DateTimeOffset ExpiresAt, string TokenType = "Bearer");
 public sealed record CreateSaleLineRequest(long ProductId, int Quantity, decimal? ExpectedUnitPrice, decimal DiscountPercent = 0);
 public sealed record CustomerRequest(string? Identification, string? Email, string? Name);
+public sealed record CustomerDto(long Id, string Name, string? Identification, string? Email);
 public sealed record CreateSaleRequest(DateOnly OperationDate, long SessionId, long PaymentMethodId,
     IReadOnlyList<CreateSaleLineRequest> Lines, CustomerRequest? Customer);
 public sealed record SaleResult(string Id, string Status, decimal Total, string? ExternalId, string? Message, bool Replayed = false);
@@ -23,6 +24,7 @@ public interface IOdooGateway
     Task<PagedResult<ProductDto>> GetProductsAsync(string? name, string? code, int page, int pageSize, CancellationToken ct);
     Task<IReadOnlyDictionary<long, ProductDto>> GetProductsByIdsAsync(IReadOnlyCollection<long> ids, CancellationToken ct);
     Task<PosSessionDto?> GetActiveSessionAsync(CancellationToken ct);
+    Task<CustomerDto?> FindCustomerAsync(CustomerRequest customer, CancellationToken ct);
     Task<Sale> CreateSaleAsync(Sale sale, CancellationToken ct);
     Task<PagedResult<Sale>> GetSalesAsync(string? name, string? id, int page, int pageSize, CancellationToken ct);
     Task<Sale?> GetSaleAsync(string id, CancellationToken ct);

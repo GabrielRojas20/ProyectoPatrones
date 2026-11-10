@@ -60,6 +60,25 @@ public sealed class OdooGateway(IOdooJson2Client client) : IOdooGateway
             methods.Select(x => new PaymentMethodDto(x.Id, x.Name)).ToArray());
     }
 
+    public async Task<CustomerDto?> FindCustomerAsync(CustomerRequest customer, CancellationToken ct)
+    {
+        object[] criterion = !string.IsNullOrWhiteSpace(customer.Identification)
+            ? ["vat", "=", customer.Identification]
+            : !string.IsNullOrWhiteSpace(customer.Email)
+                ? ["email", "=ilike", customer.Email]
+                : ["name", "=ilike", customer.Name ?? string.Empty];
+        var records = await CallAsync<List<CustomerRecord>>("res.partner", "search_read", new
+        {
+            domain = new object[] { criterion, new object[] { "active", "=", true } },
+            fields = new[] { "id", "name", "vat", "email" },
+            limit = 2,
+            order = "id"
+        }, ct);
+        if (records.Count != 1) return null;
+        var partner = records[0];
+        return new(partner.Id, partner.Name, partner.Identification, partner.Email);
+    }
+
     public async Task<Sale> CreateSaleAsync(Sale sale, CancellationToken ct)
     {
         var uuid = Guid.ParseExact(sale.Id, "N");
@@ -87,6 +106,7 @@ public sealed class OdooGateway(IOdooJson2Client client) : IOdooGateway
             {
                 uuid,
                 session_id = sale.SessionId,
+                partner_id = sale.Customer?.PartnerId,
                 date_order = sale.OperationDate.ToDateTime(TimeOnly.MinValue),
                 state = "paid",
                 amount_paid = sale.Total,
@@ -128,7 +148,7 @@ public sealed class OdooGateway(IOdooJson2Client client) : IOdooGateway
         var records = await CallAsync<List<SaleRecord>>("pos.order", "search_read", new
         {
             domain,
-            fields = new[] { "id", "pos_reference", "date_order", "session_id", "state", "amount_total", "lines", "payment_ids" },
+            fields = new[] { "id", "pos_reference", "date_order", "session_id", "partner_id", "state", "amount_total", "lines", "payment_ids" },
             offset,
             limit,
             order = "date_order desc,id desc"
@@ -138,8 +158,9 @@ public sealed class OdooGateway(IOdooJson2Client client) : IOdooGateway
         {
             var lines = record.Lines.Length == 0 ? [] : await ReadLinesAsync(record.Lines, ct);
             var paymentMethodId = record.PaymentIds.Length == 0 ? 0 : await ReadPaymentMethodAsync(record.PaymentIds[0], ct);
+            var customer = MapCustomer(record.PartnerId);
             results.Add(new(record.Id.ToString(), DateOnly.FromDateTime(record.DateOrder), ManyToOneId(record.SessionId),
-                paymentMethodId, lines, MapStatus(record.State), record.AmountTotal, record.Id.ToString(), record.PosReference));
+                paymentMethodId, lines, customer, MapStatus(record.State), record.AmountTotal, record.Id.ToString(), record.PosReference));
         }
         return results;
     }
@@ -189,7 +210,7 @@ public sealed class OdooGateway(IOdooJson2Client client) : IOdooGateway
     private static object[] SaleDomain(string? name, string? id)
     {
         var domain = new List<object>();
-        if (!string.IsNullOrWhiteSpace(name)) domain.Add(new object[] { "pos_reference", "ilike", name });
+        if (!string.IsNullOrWhiteSpace(name)) domain.Add(new object[] { "partner_id.name", "ilike", name });
         if (!string.IsNullOrWhiteSpace(id))
             domain.Add(long.TryParse(id, out var value)
                 ? new object[] { "id", "=", value }
@@ -203,6 +224,12 @@ public sealed class OdooGateway(IOdooJson2Client client) : IOdooGateway
         JsonValueKind.Number => value.GetInt64(),
         _ => 0
     };
+
+    private static SaleCustomer? MapCustomer(JsonElement value)
+    {
+        if (value.ValueKind != JsonValueKind.Array || value.GetArrayLength() < 2) return null;
+        return new(value[0].GetInt64(), value[1].GetString() ?? string.Empty, null, null);
+    }
 
     private static SaleStatus MapStatus(string state) => state switch
     {
@@ -221,10 +248,14 @@ public sealed class OdooGateway(IOdooJson2Client client) : IOdooGateway
     private sealed record SessionRecord(long Id, string Name, string State,
         [property: JsonPropertyName("payment_method_ids")] long[] PaymentMethodIds);
     private sealed record PaymentMethodRecord(long Id, string Name);
+    private sealed record CustomerRecord(long Id, string Name,
+        [property: JsonPropertyName("vat")] string? Identification,
+        string? Email);
     private sealed record SaleRecord(long Id,
         [property: JsonPropertyName("pos_reference")] string? PosReference,
         [property: JsonPropertyName("date_order")] DateTime DateOrder,
         [property: JsonPropertyName("session_id")] JsonElement SessionId,
+        [property: JsonPropertyName("partner_id")] JsonElement PartnerId,
         string State,
         [property: JsonPropertyName("amount_total")] decimal AmountTotal,
         long[] Lines,

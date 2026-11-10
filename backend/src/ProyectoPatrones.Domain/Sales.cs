@@ -7,12 +7,15 @@ public sealed record SaleLine(long ProductId, int Quantity, decimal UnitPrice, d
     public decimal Subtotal => decimal.Round(Quantity * UnitPrice * (1 - DiscountPercent / 100m), 2);
 }
 
+public sealed record SaleCustomer(long PartnerId, string Name, string? Identification, string? Email);
+
 public sealed record Sale(
     string Id,
     DateOnly OperationDate,
     long SessionId,
     long PaymentMethodId,
     IReadOnlyList<SaleLine> Lines,
+    SaleCustomer? Customer,
     SaleStatus Status,
     decimal Total,
     string? ExternalId,
