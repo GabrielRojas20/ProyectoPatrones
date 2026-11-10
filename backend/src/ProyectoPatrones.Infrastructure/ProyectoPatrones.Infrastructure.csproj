@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <ProjectReference Include="../ProyectoPatrones.Application/ProyectoPatrones.Application.csproj" />
+    <ProjectReference Include="../ProyectoPatrones.Infrastructure.Odoo/ProyectoPatrones.Infrastructure.Odoo.csproj" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.5" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.14.0" />
   </ItemGroup>

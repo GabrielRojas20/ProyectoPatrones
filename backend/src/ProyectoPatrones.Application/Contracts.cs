@@ -30,8 +30,8 @@ public interface IOdooGateway
 
 public interface IIdempotencyStore
 {
-    Task<SaleResult?> GetAsync(string key, CancellationToken ct);
-    Task SaveAsync(string key, SaleResult result, CancellationToken ct);
+    Task<SaleResult?> GetAsync(string key, string requestFingerprint, CancellationToken ct);
+    Task SaveAsync(string key, string requestFingerprint, SaleResult result, CancellationToken ct);
 }
 
 public interface IOperatorAuthenticator { bool Verify(string username, string password); }

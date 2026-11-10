@@ -1,5 +1,8 @@
 using System.Collections.Concurrent;
 using System.Net.Mail;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using ProyectoPatrones.Domain;
 
@@ -58,7 +61,8 @@ public sealed partial class SaleService(
         await gate.WaitAsync(ct);
         try
         {
-            if (await idempotency.GetAsync(idempotencyKey, ct) is { } stored)
+            var fingerprint = Fingerprint(request);
+            if (await idempotency.GetAsync(idempotencyKey, fingerprint, ct) is { } stored)
                 return stored with { Replayed = true };
 
             ValidateRequest(request);
@@ -99,10 +103,16 @@ public sealed partial class SaleService(
                 throw new IntegrationException("odoo.sale_not_confirmed", "Odoo no confirmó la venta ni el pago.");
 
             var result = new SaleResult(confirmed.Id, "confirmed", confirmed.Total, confirmed.ExternalId, confirmed.Message);
-            await idempotency.SaveAsync(idempotencyKey, result, ct);
+            await idempotency.SaveAsync(idempotencyKey, fingerprint, result, ct);
             return result;
         }
         finally { gate.Release(); }
+    }
+
+    private static string Fingerprint(CreateSaleRequest request)
+    {
+        var json = JsonSerializer.Serialize(request);
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(json)));
     }
 
     public Task<PagedResult<Sale>> SearchAsync(string? name, string? id, int page, int pageSize, CancellationToken ct)

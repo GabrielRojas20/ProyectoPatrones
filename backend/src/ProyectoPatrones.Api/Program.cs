@@ -6,13 +6,24 @@ using Microsoft.IdentityModel.Tokens;
 using ProyectoPatrones.Application;
 using ProyectoPatrones.Domain;
 using ProyectoPatrones.Infrastructure;
+using ProyectoPatrones.Infrastructure.Odoo;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddEnvironmentVariables();
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
 builder.Services.Configure<AuthOptions>(builder.Configuration.GetSection(AuthOptions.Section));
-builder.Services.Configure<OdooOptions>(builder.Configuration.GetSection(OdooOptions.Section));
+builder.Services.Configure<IdempotencyOptions>(builder.Configuration.GetSection(IdempotencyOptions.Section));
+var odoo = builder.Configuration.GetSection(OdooJson2Options.SectionName).Get<OdooJson2Options>() ?? new();
+builder.Services.AddOdooJson2(odoo);
+
+var frontendOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+if (frontendOrigins.Length == 0)
+    throw new InvalidOperationException("Cors:AllowedOrigins debe contener al menos un origen permitido.");
+builder.Services.AddCors(options => options.AddPolicy("Frontend", policy => policy
+    .WithOrigins(frontendOrigins)
+    .AllowAnyHeader()
+    .AllowAnyMethod()));
 
 var auth = builder.Configuration.GetSection(AuthOptions.Section).Get<AuthOptions>() ?? new();
 if (Encoding.UTF8.GetByteCount(auth.JwtSecret) < 32)
@@ -36,8 +47,8 @@ builder.Services.AddAuthorization();
 builder.Services.AddSingleton<IClock, SystemClock>();
 builder.Services.AddSingleton<IOperatorAuthenticator, Pbkdf2OperatorAuthenticator>();
 builder.Services.AddSingleton<ITokenIssuer, JwtTokenIssuer>();
-builder.Services.AddSingleton<IIdempotencyStore, InMemoryIdempotencyStore>();
-builder.Services.AddSingleton<IOdooGateway, UnconfiguredOdooGateway>();
+builder.Services.AddSingleton<IIdempotencyStore, FileIdempotencyStore>();
+builder.Services.AddScoped<IOdooGateway, OdooGateway>();
 builder.Services.AddSingleton<IDiscountPolicy>(_ => new MaximumDiscountPolicy(builder.Configuration.GetValue("Sales:MaximumDiscountPercent", 20m)));
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<CatalogService>();
@@ -65,6 +76,7 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
         Extensions = { ["code"] = code, ["traceId"] = context.TraceIdentifier }
     });
 }));
+app.UseCors("Frontend");
 app.UseAuthentication();
 app.UseAuthorization();
 

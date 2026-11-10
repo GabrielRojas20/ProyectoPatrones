@@ -14,5 +14,6 @@ secrets/
 .vscode/settings.json
 .idea/
 *.log
+backend/data/
 infra/odoo/data/
 infra/odoo/filestore/
