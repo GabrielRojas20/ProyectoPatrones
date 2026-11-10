@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="src/ProyectoPatrones.Domain/ProyectoPatrones.Domain.csproj" />
+  <Project Path="src/ProyectoPatrones.Application/ProyectoPatrones.Application.csproj" />
+  <Project Path="src/ProyectoPatrones.Infrastructure/ProyectoPatrones.Infrastructure.csproj" />
+  <Project Path="src/ProyectoPatrones.Infrastructure.Odoo/ProyectoPatrones.Infrastructure.Odoo.csproj" />
+  <Project Path="src/ProyectoPatrones.Api/ProyectoPatrones.Api.csproj" />
+  <Project Path="tests/ProyectoPatrones.Application.Tests/ProyectoPatrones.Application.Tests.csproj" />
+</Solution>

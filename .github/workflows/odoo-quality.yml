@@ -1,0 +1,31 @@
+name: Odoo adapter quality
+
+on:
+  pull_request:
+    paths:
+      - "backend/src/ProyectoPatrones.Infrastructure.Odoo/**"
+      - "tests/ProyectoPatrones.Odoo.ContractChecks/**"
+      - ".github/workflows/odoo-quality.yml"
+  push:
+    branches:
+      - "feature/lara-odoo-quality"
+    paths:
+      - "backend/src/ProyectoPatrones.Infrastructure.Odoo/**"
+      - "tests/ProyectoPatrones.Odoo.ContractChecks/**"
+      - ".github/workflows/odoo-quality.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  contract-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Compilar adaptador Odoo
+        run: dotnet build backend/src/ProyectoPatrones.Infrastructure.Odoo/ProyectoPatrones.Infrastructure.Odoo.csproj --configuration Release
+      - name: Ejecutar verificaciones de contrato
+        run: dotnet run --project tests/ProyectoPatrones.Odoo.ContractChecks/ProyectoPatrones.Odoo.ContractChecks.csproj --configuration Release
