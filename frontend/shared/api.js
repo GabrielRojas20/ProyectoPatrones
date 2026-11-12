@@ -1,7 +1,8 @@
 const DEFAULT_API_BASE = 'http://localhost:8080';
 
 export function apiBase() {
-  return (globalThis.NORTHWIND_API_BASE || import.meta?.env?.VITE_API_BASE || DEFAULT_API_BASE).replace(/\/$/, '');
+  const configured = globalThis.NORTHWIND_API_BASE || import.meta.env?.VITE_API_BASE || DEFAULT_API_BASE;
+  return configured.replace(/\/$/, '');
 }
 
 export async function apiRequest(path, options = {}) {
@@ -28,6 +29,6 @@ export const api = {
   products: ({ name = '', code = '', page = 1, pageSize = 10 } = {}) => apiRequest(`/api/products?name=${encodeURIComponent(name)}&code=${encodeURIComponent(code)}&page=${page}&pageSize=${pageSize}`),
   session: () => apiRequest('/api/pos/sessions/active'),
   sales: ({ name = '', id = '', page = 1, pageSize = 10 } = {}) => apiRequest(`/api/sales?name=${encodeURIComponent(name)}&id=${encodeURIComponent(id)}&page=${page}&pageSize=${pageSize}`),
-  sale: (id) => apiRequest(`/api/sales/${encodeURIComponent(id)}`),
-  createSale: (payload) => apiRequest('/api/sales', { method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() }, body: JSON.stringify(payload) }),
+  sale: id => apiRequest(`/api/sales/${encodeURIComponent(id)}`),
+  createSale: (payload, idempotencyKey) => apiRequest('/api/sales', { method: 'POST', headers: { 'Idempotency-Key': idempotencyKey }, body: JSON.stringify(payload) }),
 };
