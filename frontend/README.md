@@ -32,6 +32,7 @@ cd frontend/vue && npm run build
 cd ../..
 node --check frontend/html/app.js
 node frontend/tests/validation.test.mjs
+node frontend/tests/review-functional.test.mjs
 ```
 
-La prueba de validaciones cubre límite de 40 caracteres, letras, números, correo, cédula y fecha. La validación de integración debe ejecutarse después con la API, Odoo y CORS reales configurados.
+La prueba de validaciones cubre límite de 40 caracteres, letras, números, correo, cédula y fecha. La prueba funcional cubre 409 sin sesión, 502 incierto, repetición con la misma clave y payload, segundo método de pago y fecha local de Ecuador. La validación de integración debe ejecutarse después con la API, Odoo y CORS reales configurados.
