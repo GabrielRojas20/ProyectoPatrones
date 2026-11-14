@@ -5,14 +5,29 @@ export function apiBase() {
   return configured.replace(/\/$/, '');
 }
 
+function uncertainNetworkError(cause) {
+  const error = new Error('No se pudo confirmar la respuesta del servidor. El resultado puede ser incierto.');
+  error.status = 0;
+  error.code = 'network.uncertain';
+  error.uncertain = true;
+  error.cause = cause;
+  return error;
+}
+
 export async function apiRequest(path, options = {}) {
   const token = sessionStorage.getItem('pos_token');
   const headers = new Headers(options.headers || {});
   headers.set('Accept', 'application/json');
   if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
   if (token) headers.set('Authorization', `Bearer ${token}`);
-  const response = await fetch(`${apiBase()}${path}`, { ...options, headers });
-  const text = await response.text();
+  let response;
+  let text;
+  try {
+    response = await fetch(`${apiBase()}${path}`, { ...options, headers });
+    text = await response.text();
+  } catch (cause) {
+    throw uncertainNetworkError(cause);
+  }
   let data = null;
   try { data = text ? JSON.parse(text) : null; } catch { data = { message: text }; }
   if (!response.ok) {

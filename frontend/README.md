@@ -36,3 +36,12 @@ node frontend/tests/review-functional.test.mjs
 ```
 
 La prueba de validaciones cubre límite de 40 caracteres, letras, números, correo, cédula y fecha. La prueba funcional cubre 409 sin sesión, 502 incierto, repetición con la misma clave y payload, segundo método de pago y fecha local de Ecuador. La validación de integración debe ejecutarse después con la API, Odoo y CORS reales configurados.
+
+
+## Manejo de sesión POS y resultados inciertos
+
+Los tres clientes consultan `/api/pos/sessions/active` antes de cargar el catálogo. Si la API responde `409`, muestran la vista **Sin sesión POS activa**, bloquean el catálogo y el checkout, y ofrecen reintentar la consulta o cerrar sesión.
+
+Una venta no confirmada se conserva como un intento congelado. Las respuestas `502`, `504`, los timeouts y los errores de red conservan el mismo payload y la misma cabecera `Idempotency-Key` para el reintento. Solo después de una confirmación exitosa se libera el intento. El descarte muestra una advertencia porque Odoo pudo haber registrado la venta.
+
+La prueba `frontend/tests/review-functional.test.mjs` cubre sesión inexistente, bloqueo de sesión, `502`, `504`, pérdida de red, reintento con la misma clave, método de pago y fecha local.

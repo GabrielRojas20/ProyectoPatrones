@@ -7,5 +7,9 @@ export function newSaleAttempt(payload) {
 }
 
 export function isUncertainSaleError(error) {
-  return error?.status === 502 && error?.code === 'odoo.result_uncertain';
+  return Boolean(error?.uncertain) || error?.status === 504 || error?.status === 502;
+}
+
+export function hasActiveSession(session) {
+  return Boolean(session?.id);
 }
