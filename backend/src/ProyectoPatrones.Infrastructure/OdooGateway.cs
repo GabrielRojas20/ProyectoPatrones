@@ -18,7 +18,7 @@ public sealed class OdooGateway(IOdooJson2Client client) : IOdooGateway
             fields = new[] { "id", "default_code", "display_name", "lst_price", "available_in_pos", "active" },
             offset = (page - 1) * pageSize,
             limit = pageSize,
-            order = "display_name,id"
+            order = "default_code,id"
         }, ct);
         var total = await CallAsync<int>("product.product", "search_count", new { domain }, ct);
         return new(records.Select(MapProduct).ToArray(), page, pageSize, total);
