@@ -52,4 +52,6 @@ La integración real de ventas y pagos no se considera comprobada hasta registra
 - Docker Compose de Odoo 20 y PostgreSQL 16 con variables locales y espera de salud de PostgreSQL.
 - Verificaciones locales del contrato HTTP y workflow de GitHub Actions.
 - Decisiones documentadas sobre integración, descuentos e idempotencia. Las políticas de descuentos e idempotencia permanecen como propuestas pendientes de implementación en Application.
-- La venta completa, el registro de pago y P09 requieren el host API, el contrato validado por el equipo y una instancia real de Odoo.
+- Preparación reproducible de Odoo 20 con impuesto, dos productos, efectivo, punto de venta y sesión abierta.
+- P09 ejecutada contra una instancia real local: orden con dos líneas y pago en efectivo confirmada y documentada con evidencia sanitizada.
+- El flujo HTTP completo desde el backend sigue dependiendo del contrato y trabajo de Application/Infrastructure; P09 no se presenta como sustituto de esa integración.

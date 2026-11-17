@@ -1,0 +1,17 @@
+{
+  "amount_total": 7.48,
+  "database": "pos_demo_codex",
+  "line_count": 2,
+  "order_id": 2,
+  "payment_kind": "cash",
+  "payment_method_id": 3,
+  "pos_reference": "P09-59BF7F205776",
+  "product_ids": [
+    9,
+    10
+  ],
+  "result": "PASS",
+  "session_id": 2,
+  "state": "paid",
+  "test": "P09"
+}

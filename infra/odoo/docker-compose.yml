@@ -28,7 +28,14 @@ services:
       PASSWORD: ${ODOO_POSTGRES_PASSWORD:?Define ODOO_POSTGRES_PASSWORD en .env}
     volumes:
       - odoo_data:/var/lib/odoo
+      - ./scripts:/mnt/odoo-scripts:ro
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8069/web/health', timeout=3)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
 volumes:
   postgres_data:
   odoo_data:
