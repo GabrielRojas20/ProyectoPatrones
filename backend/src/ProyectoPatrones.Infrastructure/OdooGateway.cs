@@ -183,11 +183,13 @@ public sealed class OdooGateway(IOdooJson2Client client) : IOdooGateway
         try { return await client.CallAsync<T>(model, method, payload, ct); }
         catch (OdooIntegrationException ex)
         {
-            throw new IntegrationException(ex.IsTimeout ? "odoo.timeout" : "odoo.request_failed", ex.Message, ex.OutcomeMayHaveBeenApplied, ex);
+            if (ex.IsTimeout)
+                throw new ApplicationException("odoo.timeout", "Odoo excedió el tiempo configurado; el resultado de la operación es desconocido.", 504);
+            throw new IntegrationException("odoo.request_failed", ex.Message, ex.OutcomeMayHaveBeenApplied, ex);
         }
     }
 
-    private static ProductDto MapProduct(ProductRecord x) => new(x.Id, x.Code ?? string.Empty, x.Name, x.Price, x.Active && x.AvailableInPos);
+    private static ProductDto MapProduct(ProductRecord x) => new(x.Id, x.Code ?? string.Empty, x.Name ?? string.Empty, x.Price, x.Active && x.AvailableInPos);
     private static object[] ProductDomain(string? name, string? code)
     {
         var domain = new List<object> { new object[] { "active", "=", true }, new object[] { "available_in_pos", "=", true } };
