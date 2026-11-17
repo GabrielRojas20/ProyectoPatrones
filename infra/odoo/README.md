@@ -54,13 +54,33 @@ docker compose --env-file .env -f infra/odoo/docker-compose.yml down
 
 `down` conserva los volúmenes. Para borrar deliberadamente los datos locales de Odoo/PostgreSQL, se puede usar `down -v`.
 
-Para cargar la configuración local en el proceso API desde PowerShell, ejecuta `infra/odoo/Load-LocalSettings.ps1` y luego inicia el host ASP.NET Core cuando se agregue al repositorio. Los valores reales solo se configuran localmente. La API key debe pertenecer al usuario de integración de Odoo y no es su contraseña de inicio de sesión.
+Para cargar la configuración local en el proceso API desde PowerShell, ejecuta `infra/odoo/Load-LocalSettings.ps1` y luego inicia el host ASP.NET Core:
+
+```powershell
+.\infra\odoo\Load-LocalSettings.ps1
+dotnet run --project backend/src/ProyectoPatrones.Api
+```
+
+Los valores reales solo se configuran localmente. La API key debe pertenecer al usuario de integración de Odoo y no es su contraseña de inicio de sesión.
 
 ## Estado de P09
 
 P09 permanece pendiente. Solo podrá aprobarse cuando una solicitud pase por la API ASP.NET Core,
 el gateway y Odoo JSON-2, y se conserven la respuesta HTTP y las trazas sanitizadas. La venta ORM
 de infraestructura no sustituye esa validación ni las verificaciones de contrato existentes.
+
+Con Odoo preparado y la API en ejecución, abre otra terminal en la raíz del repositorio y ejecuta:
+
+```powershell
+.\infra\odoo\Invoke-P09ApiIntegration.ps1
+```
+
+El script solicita la contraseña del operador sin guardarla, inicia sesión, consulta los productos
+`POS-CAFE` y `POS-SANDWICH`, verifica la sesión y el método `Efectivo Proyecto`, registra una venta
+por `POST /api/sales` y consulta su detalle mediante la API. Solo escribe resultado `PASS` si
+confirma la orden en Odoo, las dos líneas y el pago esperado. La evidencia se guarda en
+`infra/odoo/evidence/p09-api-latest.json`; si la respuesta deja el resultado incierto, conserva
+la clave de idempotencia para poder conciliar la operación antes de cualquier reintento.
 
 ## Seguridad y diagnóstico
 
