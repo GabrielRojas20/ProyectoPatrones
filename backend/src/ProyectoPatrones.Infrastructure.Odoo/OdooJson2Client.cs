@@ -35,7 +35,7 @@ public sealed class OdooJson2Client(HttpClient httpClient, OdooJson2Options opti
         {
             throw new OdooIntegrationException(
                 "Odoo no respondió dentro del tiempo configurado; el resultado de la operación es desconocido.",
-                outcomeMayHaveBeenApplied: true, innerException: exception);
+                outcomeMayHaveBeenApplied: true, innerException: exception, isTimeout: true);
         }
         catch (HttpRequestException exception)
         {
@@ -71,7 +71,7 @@ public sealed class OdooJson2Client(HttpClient httpClient, OdooJson2Options opti
             {
                 throw new OdooIntegrationException(
                     "Odoo no terminó de responder dentro del tiempo configurado; el resultado es desconocido.",
-                    outcomeMayHaveBeenApplied: true, response.StatusCode, exception);
+                    outcomeMayHaveBeenApplied: true, response.StatusCode, exception, isTimeout: true);
             }
             catch (HttpRequestException exception)
             {
