@@ -43,7 +43,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
         ClockSkew = TimeSpan.FromSeconds(30)
     };
 });
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+    options.AddPolicy("Operator", policy => policy.RequireRole("operator")));
 builder.Services.AddSingleton<IClock, SystemClock>();
 builder.Services.AddSingleton<IOperatorAuthenticator, Pbkdf2OperatorAuthenticator>();
 builder.Services.AddSingleton<ITokenIssuer, JwtTokenIssuer>();
@@ -82,7 +83,7 @@ app.UseAuthorization();
 
 app.MapPost("/api/auth/login", (LoginRequest request, AuthService service) => Results.Ok(service.Login(request)))
     .AllowAnonymous().WithTags("Auth");
-var secured = app.MapGroup("/api").RequireAuthorization();
+var secured = app.MapGroup("/api").RequireAuthorization("Operator");
 secured.MapGet("/products", (string? name, string? code, int page, int pageSize, CatalogService service, CancellationToken ct) =>
     service.SearchAsync(name, code, page, pageSize, ct)).WithTags("Products");
 secured.MapGet("/pos/sessions/active", (PosSessionService service, CancellationToken ct) => service.GetActiveAsync(ct)).WithTags("POS");
@@ -93,6 +94,7 @@ secured.MapGet("/sales", (string? name, string? id, int page, int pageSize, Sale
 secured.MapGet("/sales/{id}", (string id, SaleService service, CancellationToken ct) => service.GetAsync(id, ct)).WithTags("Sales");
 
 app.MapOpenApi();
+app.UseSwaggerUI(options => options.SwaggerEndpoint("/openapi/v1.json", "ProyectoPatrones API v1"));
 app.Run();
 
 public partial class Program;
