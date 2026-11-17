@@ -13,7 +13,12 @@ El API exige Auth__JwtSecret, Auth__OperatorPasswordHash, Odoo__BaseUrl, Odoo__D
 
 El composition root registra OdooGateway -> IOdooJson2Client -> OdooJson2Client. Las consultas usan search_read/search_count y la venta usa pos.order.sync_from_ui. Un timeout de Odoo devuelve 504; otras respuestas ambiguas devuelven 502 y nunca se informa éxito. P09 permanece pendiente hasta ejecutarse y documentarse en una instancia Odoo real; compilar o usar dobles no sustituye esa evidencia.
 
-Para iniciar en PowerShell después de crear .env local: .\infra\odoo\Load-LocalSettings.ps1 y dotnet run --project backend/src/ProyectoPatrones.Api.
+Para iniciar en PowerShell después de crear .env local:
+
+```powershell
+.\infra\odoo\Load-LocalSettings.ps1
+dotnet run --project backend/src/ProyectoPatrones.Api
+```
 
 Los orígenes CORS se configuran con Cors__AllowedOrigins__0, Cors__AllowedOrigins__1, etc. Los valores de desarrollo incluidos son localhost:5173, localhost:5174 y localhost:5500; producción debe declarar únicamente sus orígenes HTTPS reales.
 
@@ -21,11 +26,13 @@ Los orígenes CORS se configuran con Cors__AllowedOrigins__0, Cors__AllowedOrigi
 
 PowerShell (reemplace la contraseña solo en su terminal; no la guarde en Git):
 
+```powershell
 $password = Read-Host -AsSecureString
 $plain = [System.Net.NetworkCredential]::new('', $password).Password
 $salt = [Security.Cryptography.RandomNumberGenerator]::GetBytes(16)
 $hash = [Security.Cryptography.Rfc2898DeriveBytes]::Pbkdf2($plain, $salt, 210000, [Security.Cryptography.HashAlgorithmName]::SHA256, 32)
 "210000.$([Convert]::ToBase64String($salt)).$([Convert]::ToBase64String($hash))"
+```
 
 ## Contratos
 
