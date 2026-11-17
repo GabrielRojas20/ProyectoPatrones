@@ -21,6 +21,7 @@ public sealed class OdooGatewayTests
         Assert.Equal(2.5m, result.Items[0].Price);
         Assert.Equal(("product.product", "search_read"), client.Calls[0]);
         Assert.Equal(("product.product", "search_count"), client.Calls[1]);
+        Assert.Equal("default_code,id", client.Payloads[0].GetProperty("order").GetString());
     }
 
     [Fact]
