@@ -1,4 +1,4 @@
-"""Registra y verifica P09 dentro de una instancia real de Odoo.
+"""Prueba de infraestructura: registra una venta directamente con el ORM de Odoo.
 
 La salida solo contiene identificadores tecnicos y totales; no imprime claves,
 contraseñas, tokens, cookies ni encabezados de autenticacion.
@@ -23,7 +23,7 @@ products = env["product.product"].search(
     [("default_code", "in", ["POS-CAFE", "POS-SANDWICH"])], order="default_code"
 )
 if len(products) != 2:
-    raise RuntimeError("P09 requiere exactamente los dos productos de prueba")
+    raise RuntimeError("La prueba de infraestructura requiere exactamente los dos productos")
 
 payment_method = env["pos.payment.method"].search(
     [("name", "=", "Efectivo Proyecto")], limit=1
@@ -63,7 +63,7 @@ for product in products:
         )
     )
 
-reference = f"P09-{uuid.uuid4().hex[:12].upper()}"
+reference = f"INFRA-{uuid.uuid4().hex[:12].upper()}"
 order = env["pos.order"].create(
     {
         "name": reference,
@@ -99,7 +99,7 @@ if len(verified.lines) != 2 or len(verified.payment_ids) != 1:
     raise RuntimeError("La venta confirmada no conserva dos lineas y un pago")
 
 evidence = {
-    "test": "P09",
+    "test": "ODOO_INFRASTRUCTURE_SALE",
     "result": "PASS",
     "database": env.cr.dbname,
     "order_id": verified.id,
@@ -112,4 +112,4 @@ evidence = {
     "amount_total": verified.amount_total,
     "state": verified.state,
 }
-print("P09_EVIDENCE " + json.dumps(evidence, sort_keys=True))
+print("INFRASTRUCTURE_EVIDENCE " + json.dumps(evidence, sort_keys=True))

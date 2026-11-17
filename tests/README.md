@@ -22,14 +22,18 @@ Comprueban ruta y verbo JSON-2, encabezados de autenticacion y base de datos, se
 | P06 | Idempotencia | Pendiente de persistencia y caso de uso |
 | P07 | Carrito y total | Pendiente de Application/frontend |
 | P08 | Error de API en frontend | Pendiente de frontend |
-| P09 | Venta real de dos productos y efectivo en Odoo | Aprobado en Odoo 20 local; evidencia sanitizada en `infra/odoo/evidence/p09-latest.json` |
+| P09 | Venta real de dos productos y efectivo mediante API y JSON-2 | Pendiente de respuesta HTTP y trazas sanitizadas del flujo completo |
 | P10 | Cambio controlado de politica o integracion | Pendiente de acordar limites e integrar flujo |
 
-P09 es una prueba de integracion real y no se reemplaza por un mock. Se ejecuta con:
+La preparación de infraestructura se comprueba con:
 
 ```powershell
 ./infra/odoo/Invoke-OdooQualityChecks.ps1
 ```
 
-El script vuelve a consultar la orden, exige dos lineas, un pago en efectivo y un estado pagado,
-y solo entonces escribe la evidencia sanitizada.
+El script crea una venta directamente mediante el ORM, vuelve a consultar la orden y exige dos
+lineas, un pago en efectivo y un estado pagado. Su evidencia se guarda como
+`infra/odoo/evidence/infrastructure-sale-latest.json` y no se presenta como P09.
+
+P09 debe ejecutarse posteriormente mediante `POST /api/sales`, atravesar `OdooGateway` y JSON-2,
+y conservar la respuesta HTTP y trazas sanitizadas antes de cambiar su estado a aprobado.

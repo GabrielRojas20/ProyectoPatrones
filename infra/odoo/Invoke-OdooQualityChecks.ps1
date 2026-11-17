@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [string] $EnvironmentFile = (Join-Path (Split-Path $PSScriptRoot -Parent | Split-Path -Parent) ".env"),
-    [string] $EvidenceFile = (Join-Path $PSScriptRoot "evidence\p09-latest.json")
+    [string] $EvidenceFile = (Join-Path $PSScriptRoot "evidence\infrastructure-sale-latest.json")
 )
 
 $ErrorActionPreference = "Stop"
@@ -38,19 +38,19 @@ Get-Content -Raw (Join-Path $PSScriptRoot "scripts\bootstrap_pos.py") |
     & docker compose --env-file $EnvironmentFile -f $composeFile exec -T -e "ODOO_DATABASE=$database" odoo sh -c 'odoo shell -d "$ODOO_DATABASE" --db_host "$HOST" --db_user "$USER" --db_password "$PASSWORD"'
 if ($LASTEXITCODE -ne 0) { throw "No se pudo preparar la configuracion POS." }
 
-$p09Output = Get-Content -Raw (Join-Path $PSScriptRoot "scripts\p09_sale.py") |
+$infrastructureOutput = Get-Content -Raw (Join-Path $PSScriptRoot "scripts\infrastructure_sale.py") |
     & docker compose --env-file $EnvironmentFile -f $composeFile exec -T -e "ODOO_DATABASE=$database" odoo sh -c 'odoo shell -d "$ODOO_DATABASE" --db_host "$HOST" --db_user "$USER" --db_password "$PASSWORD"'
-if ($LASTEXITCODE -ne 0) { throw "La prueba real P09 fallo." }
+if ($LASTEXITCODE -ne 0) { throw "La prueba de infraestructura Odoo fallo." }
 
-$evidenceLine = $p09Output | Where-Object { $_ -like 'P09_EVIDENCE *' } | Select-Object -Last 1
-if (-not $evidenceLine) { throw "P09 no produjo evidencia verificable." }
-$json = $evidenceLine.Substring('P09_EVIDENCE '.Length)
+$evidenceLine = $infrastructureOutput | Where-Object { $_ -like 'INFRASTRUCTURE_EVIDENCE *' } | Select-Object -Last 1
+if (-not $evidenceLine) { throw "La prueba de infraestructura no produjo evidencia verificable." }
+$json = $evidenceLine.Substring('INFRASTRUCTURE_EVIDENCE '.Length)
 $parsed = $json | ConvertFrom-Json
 if ($parsed.result -ne "PASS" -or $parsed.line_count -ne 2 -or $parsed.payment_kind -ne "cash") {
-    throw "La evidencia P09 no cumple el contrato esperado."
+    throw "La evidencia de infraestructura no cumple el contrato esperado."
 }
 
 $evidenceDirectory = Split-Path -Parent $EvidenceFile
 New-Item -ItemType Directory -Force -Path $evidenceDirectory | Out-Null
 $parsed | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $EvidenceFile -Encoding utf8
-Write-Host "P09 PASS. Evidencia sanitizada guardada en $EvidenceFile"
+Write-Host "Prueba de infraestructura PASS. Evidencia guardada en $EvidenceFile"

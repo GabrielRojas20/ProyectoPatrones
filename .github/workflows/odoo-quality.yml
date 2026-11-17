@@ -3,14 +3,26 @@ name: Odoo adapter quality
 on:
   pull_request:
     paths:
+      - "infra/odoo/**"
+      - "docs/decisions/**"
+      - "tests/**"
       - "backend/src/ProyectoPatrones.Infrastructure.Odoo/**"
+      - "backend/src/ProyectoPatrones.Infrastructure/**"
+      - "backend/src/ProyectoPatrones.Application/**"
+      - "backend/src/ProyectoPatrones.Api/**"
       - "tests/ProyectoPatrones.Odoo.ContractChecks/**"
       - ".github/workflows/odoo-quality.yml"
   push:
     branches:
-      - "feature/lara-odoo-quality"
+      - "feature/**"
     paths:
+      - "infra/odoo/**"
+      - "docs/decisions/**"
+      - "tests/**"
       - "backend/src/ProyectoPatrones.Infrastructure.Odoo/**"
+      - "backend/src/ProyectoPatrones.Infrastructure/**"
+      - "backend/src/ProyectoPatrones.Application/**"
+      - "backend/src/ProyectoPatrones.Api/**"
       - "tests/ProyectoPatrones.Odoo.ContractChecks/**"
       - ".github/workflows/odoo-quality.yml"
 
@@ -18,6 +30,46 @@ permissions:
   contents: read
 
 jobs:
+  infrastructure-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validar Docker Compose
+        run: docker compose --env-file .env.example -f infra/odoo/docker-compose.yml config --quiet
+      - name: Validar sintaxis PowerShell
+        shell: pwsh
+        run: |
+          $errors = $null
+          Get-ChildItem infra/odoo -Filter *.ps1 -Recurse | ForEach-Object {
+            $tokens = $null
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors)
+            if ($errors) { $errors | Format-List; throw "Sintaxis PowerShell invalida en $($_.FullName)" }
+          }
+      - name: Validar sintaxis Python
+        run: python -m compileall -q infra/odoo/scripts
+      - name: Validar evidencias JSON
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          files = sorted(Path("infra/odoo/evidence").glob("*.json"))
+          if not files:
+              raise SystemExit("No existe evidencia JSON")
+          for path in files:
+              data = json.loads(path.read_text(encoding="utf-8-sig"))
+              required = {"test", "result", "line_count", "state"}
+              missing = required - data.keys()
+              if missing:
+                  raise SystemExit(f"{path}: faltan campos {sorted(missing)}")
+              if data["result"] != "PASS" or data["line_count"] != 2:
+                  raise SystemExit(f"{path}: evidencia no aprobada")
+              forbidden = {"password", "api_key", "token", "authorization", "cookie"}
+              if forbidden & {str(key).lower() for key in data}:
+                  raise SystemExit(f"{path}: contiene campos sensibles")
+          PY
+
   contract-checks:
     runs-on: ubuntu-latest
     steps:
@@ -25,7 +77,9 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
-      - name: Compilar adaptador Odoo
-        run: dotnet build backend/src/ProyectoPatrones.Infrastructure.Odoo/ProyectoPatrones.Infrastructure.Odoo.csproj --configuration Release
+      - name: Compilar infraestructura Odoo actual
+        run: dotnet build backend/src/ProyectoPatrones.Infrastructure/ProyectoPatrones.Infrastructure.csproj --configuration Release
       - name: Ejecutar verificaciones de contrato
         run: dotnet run --project tests/ProyectoPatrones.Odoo.ContractChecks/ProyectoPatrones.Odoo.ContractChecks.csproj --configuration Release
+      - name: Ejecutar pruebas del backend
+        run: dotnet test backend/ProyectoPatrones.Backend.slnx --configuration Release

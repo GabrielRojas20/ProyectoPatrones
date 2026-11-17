@@ -87,7 +87,7 @@ session = env["pos.session"].search(
 if not session:
     session = env["pos.session"].create({"config_id": config.id, "user_id": env.user.id})
 if session.state == "opening_control":
-    session.set_opening_control(0, "Apertura automatizada para P09")
+    session.set_opening_control(0, "Apertura automatizada para comprobacion de infraestructura")
 
 env.cr.commit()
 print(

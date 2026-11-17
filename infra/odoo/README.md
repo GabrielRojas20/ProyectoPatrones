@@ -8,7 +8,7 @@ Esta configuración levanta Odoo 20 Community y PostgreSQL 16 en contenedores pa
 - Docker Compose v2.
 - Archivo `.env` en la raíz del repositorio.
 
-## Preparación completa y prueba P09 en PowerShell
+## Preparación y comprobación de infraestructura en PowerShell
 
 Desde la raíz del repositorio:
 
@@ -28,12 +28,14 @@ idempotente:
 - punto de venta `POS ProyectoPatrones`;
 - sesión POS abierta.
 
-Finalmente registra una venta pagada con ambos productos y guarda evidencia sanitizada en
-`infra/odoo/evidence/p09-latest.json`. El archivo contiene únicamente IDs técnicos, total,
-estado y número de líneas; nunca contiene contraseñas, claves API, tokens ni cookies.
+Finalmente registra directamente mediante el ORM una venta de comprobación y guarda evidencia
+sanitizada en `infra/odoo/evidence/infrastructure-sale-latest.json`. El archivo contiene únicamente
+IDs técnicos, total, estado y número de líneas; nunca contiene contraseñas, claves API, tokens ni
+cookies.
 
-El proceso es repetible sobre una base ya inicializada. Cada ejecución de P09 crea una venta
-nueva con una referencia aleatoria para que la evidencia corresponda a una operación real.
+Esta comprobación demuestra que Odoo, el POS y el pago en efectivo están preparados. No atraviesa
+la API ASP.NET Core ni JSON-2 y, por tanto, no se considera la prueba P09 de integración. El proceso
+es repetible y cada ejecución crea una venta de infraestructura con una referencia aleatoria.
 Abre `http://localhost:8069` para revisar la instancia. No reutilices contraseñas de ejemplo.
 
 Para levantar solamente los servicios, sin preparar datos ni crear una venta:
@@ -54,13 +56,11 @@ docker compose --env-file .env -f infra/odoo/docker-compose.yml down
 
 Para cargar la configuración local en el proceso API desde PowerShell, ejecuta `infra/odoo/Load-LocalSettings.ps1` y luego inicia el host ASP.NET Core cuando se agregue al repositorio. Los valores reales solo se configuran localmente. La API key debe pertenecer al usuario de integración de Odoo y no es su contraseña de inicio de sesión.
 
-## Criterio de aprobación P09
+## Estado de P09
 
-Levantar los contenedores no demuestra que una venta se haya registrado. P09 se aprueba solo
-cuando Odoo conserva una orden en estado `paid`, `done` o `invoiced`, exactamente dos líneas y
-un pago mediante el método de efectivo. `Invoke-OdooQualityChecks.ps1` verifica esas condiciones
-consultando de nuevo el registro después de confirmarlo. El adaptador HTTP y las verificaciones
-de contrato continúan siendo pruebas separadas.
+P09 permanece pendiente. Solo podrá aprobarse cuando una solicitud pase por la API ASP.NET Core,
+el gateway y Odoo JSON-2, y se conserven la respuesta HTTP y las trazas sanitizadas. La venta ORM
+de infraestructura no sustituye esa validación ni las verificaciones de contrato existentes.
 
 ## Seguridad y diagnóstico
 

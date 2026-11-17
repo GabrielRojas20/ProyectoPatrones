@@ -46,12 +46,16 @@ docs/          Plan, especificación y decisiones de diseño
 
 La integración real de ventas y pagos no se considera comprobada hasta registrar una operación contra la instancia local de Odoo y conservar respuesta HTTP, trazas sanitizadas e identificadores verificables. No se debe presentar un simulador como una operación real.
 
-## Aporte de Lara: Odoo, infraestructura y calidad
+## Alcance de infraestructura Odoo
 
 - Adaptador HTTP tipado para Odoo JSON-2 con API key de servidor, validación de configuración y errores con resultado incierto para timeouts/HTTP 5xx.
 - Docker Compose de Odoo 20 y PostgreSQL 16 con variables locales y espera de salud de PostgreSQL.
 - Verificaciones locales del contrato HTTP y workflow de GitHub Actions.
 - Decisiones documentadas sobre integración, descuentos e idempotencia. Las políticas de descuentos e idempotencia permanecen como propuestas pendientes de implementación en Application.
 - Preparación reproducible de Odoo 20 con impuesto, dos productos, efectivo, punto de venta y sesión abierta.
-- P09 ejecutada contra una instancia real local: orden con dos líneas y pago en efectivo confirmada y documentada con evidencia sanitizada.
-- El flujo HTTP completo desde el backend sigue dependiendo del contrato y trabajo de Application/Infrastructure; P09 no se presenta como sustituto de esa integración.
+- Comprobación de infraestructura ejecutada directamente en Odoo: orden con dos líneas y pago en efectivo, documentada con evidencia sanitizada.
+- P09 permanece pendiente hasta validar `POST /api/sales` mediante API ASP.NET Core, `OdooGateway` y JSON-2, conservando respuesta HTTP y trazas sanitizadas.
+
+Estos cambios fueron preparados técnicamente en la rama `feature/OdoDocker` por Sebas2h. La
+asignación académica de responsabilidades a Lara se mantiene como referencia del plan del equipo;
+la autoría del commit y del Pull Request corresponde a quien efectivamente los publica.
