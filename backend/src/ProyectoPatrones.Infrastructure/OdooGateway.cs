@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ProyectoPatrones.Application;
+using ApplicationException = ProyectoPatrones.Application.ApplicationException;
 using ProyectoPatrones.Domain;
 using ProyectoPatrones.Infrastructure.Odoo;
 
