@@ -64,6 +64,7 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
     {
         ProyectoPatrones.Application.ApplicationException ex => (ex.StatusCode, ex.Code, ex.Message),
         BusinessRuleException ex => (StatusCodes.Status422UnprocessableEntity, ex.Code, ex.Message),
+        IntegrationException { Code: "odoo.timeout" } ex => (StatusCodes.Status504GatewayTimeout, ex.Code, ex.Message),
         IntegrationException ex => (StatusCodes.Status502BadGateway, ex.Code, ex.Message),
         OperationCanceledException => (StatusCodes.Status504GatewayTimeout, "request.timeout", "La operación excedió el tiempo permitido."),
         _ => (StatusCodes.Status500InternalServerError, "server.error", "Ocurrió un error interno.")
