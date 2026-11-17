@@ -21,15 +21,15 @@ public sealed class OdooGatewayTests
         Assert.Equal(2.5m, result.Items[0].Price);
         Assert.Equal(("product.product", "search_read"), client.Calls[0]);
         Assert.Equal(("product.product", "search_count"), client.Calls[1]);
+        Assert.Equal("default_code,id", client.Payloads[0].GetProperty("order").GetString());
     }
 
     [Fact]
     public async Task Sale_uses_sync_from_ui_and_requires_confirmed_odoo_identifier()
     {
-        var client = new RecordingClient(new Dictionary<string, object>
-        {
-            ["pos.order"] = new[] { new { id = 42, state = "paid" } }
-        });
+        var client = new RecordingClient(
+            new[] { new { id = 7, default_code = "P-7", display_name = "Prod", lst_price = 2.5m, available_in_pos = true, active = true, taxes_id = Array.Empty<long>() } },
+            new Dictionary<string, object> { ["pos.order"] = new[] { new { id = 42, state = "paid" } } });
         var gateway = new OdooGateway(client);
         var pending = new Sale(Guid.NewGuid().ToString("N"), DateOnly.FromDateTime(DateTime.Today), 3, 9,
             [new SaleLine(7, 2, 2.5m, 0)], new SaleCustomer(21, "Ana Pérez", "1712345678", "ana@example.com"),
@@ -37,23 +37,46 @@ public sealed class OdooGatewayTests
         var result = await gateway.CreateSaleAsync(pending, TestContext.Current.CancellationToken);
         Assert.Equal(SaleStatus.Confirmed, result.Status);
         Assert.Equal("42", result.ExternalId);
-        Assert.Equal(("pos.order", "sync_from_ui"), client.Calls.Single());
-        Assert.Equal(3, client.LastPayload.GetProperty("orders")[0].GetProperty("session_id").GetInt64());
-        Assert.Equal(9, client.LastPayload.GetProperty("orders")[0].GetProperty("payment_ids")[0][2]
-            .GetProperty("payment_method_id").GetInt64());
-        Assert.Equal(21, client.LastPayload.GetProperty("orders")[0].GetProperty("partner_id").GetInt64());
+        Assert.Equal(5m, result.Total);
+        Assert.Equal(("product.product", "search_read"), client.Calls[0]);
+        Assert.Equal(("pos.order", "sync_from_ui"), client.Calls[1]);
+        var order = client.LastPayload.GetProperty("orders")[0];
+        Assert.Equal(3, order.GetProperty("session_id").GetInt64());
+        Assert.Equal(9, order.GetProperty("payment_ids")[0][2].GetProperty("payment_method_id").GetInt64());
+        Assert.Equal(21, order.GetProperty("partner_id").GetInt64());
+    }
+
+    [Fact]
+    public async Task Taxed_sale_uses_odoo_product_taxes_and_calculated_totals()
+    {
+        var client = new RecordingClient(
+            new[] { new { id = 7, default_code = "P-7", display_name = "Prod", lst_price = 2.5m, available_in_pos = true, active = true, taxes_id = new[] { 15L } } },
+            new { total_excluded = 5m, total_included = 5.75m },
+            new Dictionary<string, object> { ["pos.order"] = new[] { new { id = 43, state = "paid" } } });
+        var gateway = new OdooGateway(client);
+        var pending = new Sale(Guid.NewGuid().ToString("N"), DateOnly.FromDateTime(DateTime.Today), 3, 9,
+            [new SaleLine(7, 2, 2.5m, 0)], null, SaleStatus.Pending, 5m, null, null);
+
+        var result = await gateway.CreateSaleAsync(pending, TestContext.Current.CancellationToken);
+
+        Assert.Equal(5.75m, result.Total);
+        Assert.Equal(("account.tax", "compute_all"), client.Calls[1]);
+        var order = client.LastPayload.GetProperty("orders")[0];
+        Assert.Equal(5.75m, order.GetProperty("amount_total").GetDecimal());
+        Assert.Equal(0.75m, order.GetProperty("amount_tax").GetDecimal());
+        Assert.Equal(5.75m, order.GetProperty("payment_ids")[0][2].GetProperty("amount").GetDecimal());
+        var line = order.GetProperty("lines")[0][2];
+        Assert.Equal(5m, line.GetProperty("price_subtotal").GetDecimal());
+        Assert.Equal(5.75m, line.GetProperty("price_subtotal_incl").GetDecimal());
+        Assert.Equal(15, line.GetProperty("tax_ids")[0][2][0].GetInt64());
     }
 
     [Fact]
     public async Task Customer_is_resolved_from_res_partner_by_identification()
     {
-        var client = new RecordingClient((object)new[]
-        {
-            new { id = 21, name = "Ana Pérez", vat = "1712345678", email = "ana@example.com" }
-        });
+        var client = new RecordingClient((object)new[] { new { id = 21, name = "Ana Pérez", vat = "1712345678", email = "ana@example.com" } });
         var gateway = new OdooGateway(client);
-        var customer = await gateway.FindCustomerAsync(
-            new("1712345678", "ana@example.com", "Ana Pérez"), TestContext.Current.CancellationToken);
+        var customer = await gateway.FindCustomerAsync(new("1712345678", "ana@example.com", "Ana Pérez"), TestContext.Current.CancellationToken);
         Assert.NotNull(customer);
         Assert.Equal(21, customer.Id);
         Assert.Equal(("res.partner", "search_read"), client.Calls.Single());
@@ -75,15 +98,12 @@ public sealed class OdooGatewayTests
         public List<(string Model, string Method)> Calls { get; } = [];
         public List<JsonElement> Payloads { get; } = [];
         public JsonElement LastPayload { get; private set; }
-
-        public Task<TResponse> CallAsync<TResponse>(string model, string method, object? payload,
-            CancellationToken cancellationToken = default)
+        public Task<TResponse> CallAsync<TResponse>(string model, string method, object? payload, CancellationToken cancellationToken = default)
         {
             Calls.Add((model, method));
             LastPayload = JsonSerializer.SerializeToElement(payload);
             Payloads.Add(LastPayload);
-            var response = JsonSerializer.SerializeToElement(_responses.Dequeue()).Deserialize<TResponse>(
-                new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            var response = JsonSerializer.SerializeToElement(_responses.Dequeue()).Deserialize<TResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web));
             return Task.FromResult(response!);
         }
     }
