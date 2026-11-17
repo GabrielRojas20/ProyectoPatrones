@@ -46,8 +46,14 @@ El script crea una venta directamente mediante el ORM, vuelve a consultar la ord
 P09 se ejecuta mediante `POST /api/sales`, atraviesa `OdooGateway` y JSON-2, y debe conservar la respuesta HTTP y trazas sanitizadas antes de cambiar su estado a aprobado. Con Odoo y la API en ejecución, desde la raíz del repositorio ejecute:
 
 ~~~powershell
-./infra/odoo/Invoke-P09ApiIntegration.ps1
+./infra/odoo/Invoke-P09ApiIntegration.ps1 `
+  -ApiBaseUrl "http://localhost:8080"
 ~~~
+
+Use `http://localhost:8080` when running the script on the API host. For a remote API, pass its
+reachable server IP, for example `-ApiBaseUrl "http://192.168.100.37:8080"`; do not use a wildcard
+listen address such as `0.0.0.0` as the request destination. The script does not infer its target
+from `ASPNETCORE_URLS`.
 
 El ejecutor solicita la contraseña del operador de forma interactiva, consulta los dos productos y la sesión POS, registra la venta con una clave de idempotencia y verifica el detalle devuelto por Odoo a través de la API. Solo produce `result: PASS` si encuentra las dos líneas, la orden confirmada y el método de pago en efectivo. Guarda evidencia sanitizada en `infra/odoo/evidence/p09-api-latest.json`; no incluye credenciales, tokens ni encabezados de autenticación. Si el resultado es incierto, use la clave conservada en la evidencia para conciliar la venta antes de volver a intentarla.
 

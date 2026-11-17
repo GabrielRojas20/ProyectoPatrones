@@ -72,7 +72,17 @@ de infraestructura no sustituye esa validación ni las verificaciones de contrat
 Con Odoo preparado y la API en ejecución, abre otra terminal en la raíz del repositorio y ejecuta:
 
 ```powershell
-.\infra\odoo\Invoke-P09ApiIntegration.ps1
+.\infra\odoo\Invoke-P09ApiIntegration.ps1 `
+  -ApiBaseUrl "http://localhost:8080"
+```
+
+El script usa `http://localhost:8080` por defecto y no reutiliza `ASPNETCORE_URLS`, que puede
+contener una dirección de escucha como `http://0.0.0.0:8080`. Para ejecutarlo desde otra máquina,
+indica la IP real del servidor, por ejemplo:
+
+```powershell
+.\infra\odoo\Invoke-P09ApiIntegration.ps1 `
+  -ApiBaseUrl "http://192.168.100.37:8080"
 ```
 
 El script solicita la contraseña del operador sin guardarla, inicia sesión, consulta los productos

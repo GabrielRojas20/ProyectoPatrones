@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string] $ApiBaseUrl = $(if ($env:ASPNETCORE_URLS) { $env:ASPNETCORE_URLS.Split(';')[0] } else { 'http://localhost:8080' }),
+    [string] $ApiBaseUrl = 'http://localhost:8080',
     [string] $OperatorUsername = $(if ($env:Auth__OperatorUsername) { $env:Auth__OperatorUsername } else { 'operator' }),
     [string] $EvidenceFile = (Join-Path $PSScriptRoot 'evidence\p09-api-latest.json')
 )
@@ -10,8 +10,9 @@ $ApiBaseUrl = $ApiBaseUrl.TrimEnd('/')
 $parsedApiBaseUrl = $null
 if (-not [Uri]::TryCreate($ApiBaseUrl, [UriKind]::Absolute, [ref]$parsedApiBaseUrl) -or
     $parsedApiBaseUrl.Scheme -notin @('http', 'https') -or $parsedApiBaseUrl.UserInfo -or
-    $parsedApiBaseUrl.Query -or $parsedApiBaseUrl.Fragment) {
-    throw 'ApiBaseUrl debe ser una URL HTTP(S) absoluta sin credenciales ni parámetros.'
+    $parsedApiBaseUrl.Query -or $parsedApiBaseUrl.Fragment -or
+    $parsedApiBaseUrl.Host -in @('0.0.0.0', '::', '[::]')) {
+    throw 'ApiBaseUrl debe ser una URL HTTP(S) absoluta, sin credenciales, parámetros ni direcciones comodín como 0.0.0.0.'
 }
 $script:EvidenceDirectory = Split-Path -Parent $EvidenceFile
 $script:IdempotencyKey = [Guid]::NewGuid().ToString('N')
