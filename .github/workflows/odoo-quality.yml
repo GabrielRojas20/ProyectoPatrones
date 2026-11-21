@@ -52,22 +52,74 @@ jobs:
         run: |
           python - <<'PY'
           import json
+          import re
           from pathlib import Path
 
           files = sorted(Path("infra/odoo/evidence").glob("*.json"))
           if not files:
               raise SystemExit("No existe evidencia JSON")
+
+          def reject_secrets(value, path):
+              forbidden_names = ("password", "api_key", "token", "authorization", "cookie")
+              if isinstance(value, dict):
+                  for key, child in value.items():
+                      normalized = str(key).casefold().replace("-", "_")
+                      if any(name in normalized for name in forbidden_names):
+                          raise SystemExit(f"{path}: campo sensible detectado: {key}")
+                      reject_secrets(child, path)
+              elif isinstance(value, list):
+                  for child in value:
+                      reject_secrets(child, path)
+              elif isinstance(value, str):
+                  if re.search(r"(?i)\bbearer\s+\S+", value) or re.search(r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b", value):
+                      raise SystemExit(f"{path}: posible token en valor de texto")
+
           for path in files:
               data = json.loads(path.read_text(encoding="utf-8-sig"))
-              required = {"test", "result", "line_count", "state"}
-              missing = required - data.keys()
-              if missing:
-                  raise SystemExit(f"{path}: faltan campos {sorted(missing)}")
-              if data["result"] != "PASS" or data["line_count"] != 2:
-                  raise SystemExit(f"{path}: evidencia no aprobada")
-              forbidden = {"password", "api_key", "token", "authorization", "cookie"}
-              if forbidden & {str(key).lower() for key in data}:
-                  raise SystemExit(f"{path}: contiene campos sensibles")
+              if not isinstance(data, dict):
+                  raise SystemExit(f"{path}: la raíz debe ser un objeto JSON")
+
+              if path.name == "infrastructure-sale-latest.json":
+                  required = {"test", "result", "line_count", "state"}
+                  missing = required - data.keys()
+                  if missing:
+                      raise SystemExit(f"{path}: faltan campos de evidencia de infraestructura {sorted(missing)}")
+                  if data["test"] != "ODOO_INFRASTRUCTURE_SALE" or data["result"] != "PASS" or data["line_count"] != 2 or data["state"] != "paid":
+                      raise SystemExit(f"{path}: evidencia de infraestructura no aprobada")
+              elif path.name == "p09-api-latest.json":
+                  required = {"schema_version", "result", "flow", "request", "verification"}
+                  missing = required - data.keys()
+                  if missing:
+                      raise SystemExit(f"{path}: faltan campos de evidencia P09 {sorted(missing)}")
+                  request = data["request"]
+                  verification = data["verification"]
+                  if not isinstance(request, dict) or not isinstance(verification, dict):
+                      raise SystemExit(f"{path}: request y verification deben ser objetos")
+                  confirmed_states = {"confirmed", "1"}
+                  checks = (
+                      data["schema_version"] == 1,
+                      data["result"] == "PASS",
+                      data["flow"] == "ASP.NET Core API -> OdooGateway -> Odoo JSON-2",
+                      request.get("method") == "POST",
+                      request.get("path") == "/api/sales",
+                      request.get("http_status") == 200,
+                      verification.get("method") == "GET",
+                      str(verification.get("path", "")).startswith("/api/sales/"),
+                      verification.get("http_status") == 200,
+                      str(verification.get("sale_status", "")).casefold() in confirmed_states,
+                      verification.get("line_count") == 2,
+                      len(verification.get("product_ids", [])) == 2,
+                      len(set(verification.get("product_ids", []))) == 2,
+                      verification.get("payment_method") == "Efectivo Proyecto",
+                      isinstance(verification.get("payment_method_id"), int) and verification["payment_method_id"] > 0,
+                      isinstance(verification.get("odoo_order_id"), str) and bool(verification["odoo_order_id"]),
+                  )
+                  if not all(checks):
+                      raise SystemExit(f"{path}: evidencia P09 no confirma dos productos, orden pagada y efectivo")
+              else:
+                  raise SystemExit(f"{path}: tipo de evidencia JSON no reconocido")
+
+              reject_secrets(data, path)
           PY
 
   contract-checks:
