@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 
 namespace ProyectoPatrones.Infrastructure.Odoo;
@@ -20,7 +21,7 @@ public sealed class OdooJson2Client(HttpClient httpClient, OdooJson2Options opti
         using var request = new HttpRequestMessage(HttpMethod.Post,
             $"json/2/{Uri.EscapeDataString(modelPath)}/{Uri.EscapeDataString(methodPath)}")
         {
-            Content = JsonContent.Create(payload ?? new { }, options: JsonOptions)
+            Content = new StringContent(JsonSerializer.Serialize(payload ?? new { }, JsonOptions), Encoding.UTF8, "application/json")
         };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", options.ApiKey);
         request.Headers.TryAddWithoutValidation("X-Odoo-Database", options.Database);
@@ -49,8 +50,9 @@ public sealed class OdooJson2Client(HttpClient httpClient, OdooJson2Options opti
             if (!response.IsSuccessStatusCode)
             {
                 var uncertain = (int)response.StatusCode >= 500;
+                var detail = await ReadSafeErrorAsync(response, timeout.Token);
                 throw new OdooIntegrationException(
-                    $"Odoo respondió HTTP {(int)response.StatusCode}; no se considera la operación exitosa.",
+                    $"Odoo respondió HTTP {(int)response.StatusCode}: {detail}",
                     outcomeMayHaveBeenApplied: uncertain, response.StatusCode);
             }
 
@@ -87,5 +89,17 @@ public sealed class OdooJson2Client(HttpClient httpClient, OdooJson2Options opti
         if (string.IsNullOrWhiteSpace(value) || value.Any(char.IsControl) || value.Contains('/'))
             throw new ArgumentException("El modelo y método deben ser nombres simples de Odoo.", parameterName);
         return value;
+    }
+
+    private static async Task<string> ReadSafeErrorAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>(JsonOptions, cancellationToken);
+            if (body.TryGetProperty("message", out var message) && message.ValueKind == JsonValueKind.String)
+                return message.GetString() ?? "solicitud rechazada";
+        }
+        catch (Exception exception) when (exception is JsonException or HttpRequestException) { }
+        return "solicitud rechazada";
     }
 }

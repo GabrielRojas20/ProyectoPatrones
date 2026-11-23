@@ -17,3 +17,4 @@ secrets/
 backend/data/
 infra/odoo/data/
 infra/odoo/filestore/
+tmp/
