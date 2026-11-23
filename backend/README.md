@@ -1,48 +1,56 @@
 # Backend ASP.NET Core
 
-Implementar ASP.NET Core Web API con Clean Architecture reconocible:
+Implementación del Frente B (Vaca) en .NET 10 con dependencias Api -> Infrastructure/Application -> Domain.
 
-- `Domain`: entidades, valores y reglas puras.
-- `Application`: casos de uso, puertos, DTOs y validadores.
-- `Infrastructure`: cliente Odoo JSON-2, configuración, idempotencia y adaptadores.
-- `Presentation`: endpoints REST, autenticación y ProblemDetails.
+## Ejecutar
 
-Contratos iniciales: `POST /api/auth/login`, `GET /api/products`, `GET /api/pos/sessions/active`, `POST /api/sales`, `GET /api/sales`, `GET /api/sales/{id}`.
+1. Configure variables usando .env.example como referencia. ASP.NET Core usa doble guion bajo para secciones (Auth__JwtSecret). Puede cargar el archivo local con infra/odoo/Load-LocalSettings.ps1.
+2. Genere el hash PBKDF2 del operador con el comando de la siguiente sección.
+3. Desde backend, ejecute dotnet restore, dotnet test y dotnet run --project src/ProyectoPatrones.Api.
+4. Consulte /openapi/v1.json para revisar el contrato OpenAPI o abra Swagger UI en /swagger.
 
-## Host API
+El API exige Auth__JwtSecret, Auth__OperatorPasswordHash, Odoo__BaseUrl, Odoo__Database y Odoo__ApiKey; ninguno se incluye en Git. JSON-2 autentica con la API key del usuario técnico mediante Authorization: Bearer, por lo que el nombre del usuario no se transmite en cada llamada.
 
-El host se encuentra en `src/ProyectoPatrones.Api` y expone los contratos de autenticación, productos, sesión, ventas, historial y detalle. Por defecto usa el adaptador Odoo real; `Pos__Mode=Demo` habilita explícitamente el adaptador local para pruebas aisladas.
+El composition root registra OdooGateway -> IOdooJson2Client -> OdooJson2Client. Las consultas usan search_read/search_count y la venta usa pos.order.sync_from_ui. Un timeout de Odoo devuelve 504; otras respuestas ambiguas devuelven 502 y nunca se informa éxito. P09 permanece pendiente hasta ejecutarse y documentarse en una instancia Odoo real; compilar o usar dobles no sustituye esa evidencia.
 
-```powershell
-./scripts/Run-Local.ps1
-```
-
-URL: `http://localhost:5080`. Credenciales demo: `operator` / `pos-demo`.
-
-## Adaptador Odoo JSON-2
-
-El proyecto `src/ProyectoPatrones.Infrastructure.Odoo` contiene el cliente HTTP tipado y la validación de configuración. Todavía no se conectó a un caso de uso de venta porque el contrato funcional y la firma real de `pos.order` deben confirmarse en la instancia del proyecto.
-
-Registra el adaptador desde el composition root de la API:
-
-```csharp
-var odooOptions = builder.Configuration.GetSection(OdooJson2Options.SectionName)
-    .Get<OdooJson2Options>() ?? new OdooJson2Options();
-builder.Services.AddOdooJson2(odooOptions);
-```
-
-El `.env` solo lo lee Docker Compose. Para cargar la misma configuración en el proceso de ASP.NET Core, ejecuta primero `infra/odoo/Load-LocalSettings.ps1`; el script establece las variables del proceso sin ejecutar su contenido. La API key debe pertenecer a un usuario de integración de Odoo con permisos mínimos. Nunca se registra su contenido. Una `OdooIntegrationException` con `OutcomeMayHaveBeenApplied == true` debe convertirse en estado de conciliación, nunca en respuesta de venta exitosa.
-
-## Responsabilidades por capa
-
-- Domain/Application: validar productos, cantidades, sesión activa, pago, descuentos e idempotencia.
-- Infrastructure: hablar con Odoo y reportar de forma explícita respuesta confirmada, rechazo o resultado incierto.
-- Presentation: traducir errores a ProblemDetails sin devolver trazas o credenciales.
-
-## Compilación
+Para iniciar en PowerShell después de crear .env local:
 
 ```powershell
-dotnet build backend/src/ProyectoPatrones.Infrastructure.Odoo/ProyectoPatrones.Infrastructure.Odoo.csproj --configuration Release
+.\infra\odoo\Load-LocalSettings.ps1
+dotnet run --project backend/src/ProyectoPatrones.Api
 ```
 
-La integración validada utiliza `pos.order.sync_from_ui`, conserva resultados inciertos y exige `Idempotency-Key`. La evidencia P09 está registrada en la matriz de cumplimiento.
+Los orígenes CORS se configuran con Cors__AllowedOrigins__0, Cors__AllowedOrigins__1, etc. Los valores de desarrollo incluidos son localhost:5173, localhost:5174 y localhost:5500; producción debe declarar únicamente sus orígenes HTTPS reales.
+
+## Hash de contraseña
+
+PowerShell (reemplace la contraseña solo en su terminal; no la guarde en Git):
+
+```powershell
+$password = Read-Host -AsSecureString
+$plain = [System.Net.NetworkCredential]::new('', $password).Password
+$salt = [Security.Cryptography.RandomNumberGenerator]::GetBytes(16)
+$hash = [Security.Cryptography.Rfc2898DeriveBytes]::Pbkdf2($plain, $salt, 210000, [Security.Cryptography.HashAlgorithmName]::SHA256, 32)
+"210000.$([Convert]::ToBase64String($salt)).$([Convert]::ToBase64String($hash))"
+```
+
+## Contratos
+
+- POST /api/auth/login (público).
+- GET /api/products?name=&code=&page=1&pageSize=10.
+- GET /api/pos/sessions/active.
+- POST /api/sales, con encabezado obligatorio Idempotency-Key.
+- GET /api/sales?name=&id=&page=1&pageSize=10.
+- GET /api/sales/{id}.
+
+Todos salvo login requieren JWT. Los errores usan ProblemDetails con code y traceId. Las validaciones cubren fecha actual, cédula, correo, nombre, sesión, pago, disponibilidad, precio vigente, cantidades, descuento y confirmación real.
+
+Cuando la solicitud incluye Customer, el backend busca un único res.partner activo por cédula; si la cédula no fue proporcionada usa el correo y, en último caso, el nombre. Después envía su partner_id a la orden POS. Si no existe o la coincidencia es ambigua, la venta se rechaza con 422 customer.not_found. El historial filtra el parámetro name mediante partner_id.name; el parámetro id continúa buscando el número o referencia de la orden.
+
+## Idempotencia
+
+Las respuestas confirmadas se conservan en Idempotency__FilePath para sobrevivir reinicios. La misma clave y el mismo cuerpo devuelven el resultado anterior; la misma clave con otro cuerpo devuelve 409 idempotency.key_reused. El archivo local no se versiona. Para despliegues con varias réplicas debe sustituirse por un almacén SQL compartido o una operación atómica equivalente.
+
+## Pruebas
+
+dotnet test cubre P01-P06, conflicto de idempotencia, precio, política de descuento (P10), JWT obligatorio, roles, CORS, ProblemDetails, timeout 504, arranque del host, registro del gateway real y contratos JSON-2. P09 requiere Odoo real y no se sustituye por un mock.

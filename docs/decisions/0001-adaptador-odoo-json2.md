@@ -1,6 +1,6 @@
 # ADR 0001: acceso a Odoo mediante JSON-2
 
-- Estado: aceptada para el adaptador de infraestructura; la venta completa continúa pendiente del contrato de aplicación.
+- Estado: aceptada para el adaptador de infraestructura; P09 de integración continúa pendiente.
 - Fecha: 2026-11-08.
 
 ## Contexto
@@ -17,4 +17,5 @@ Los errores 4xx se reportan como rechazados. Los 5xx, los timeouts, los errores 
 
 - El frontend solo conoce la API del proyecto; la clave de Odoo se queda en el servidor.
 - La capa de aplicación debe impedir que un resultado incierto se convierta en una venta exitosa y debe resolver reintentos con una clave de idempotencia.
-- La firma y respuesta del método de venta se validarán en P09 con evidencia sanitizada.
+- La comprobación ORM confirma que la configuración POS admite una venta de dos productos y efectivo, pero no es P09 ni valida el payload HTTP del backend.
+- La firma y respuesta JSON-2 de la venta deben mantenerse cubiertas por el gateway de Application/Infrastructure y su prueba de integración.
