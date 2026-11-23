@@ -39,17 +39,32 @@ docs/          Plan, especificación y decisiones de diseño
 2. Copiar `.env.example` como `.env` y completar valores solo localmente.
 3. Levantar Odoo/PostgreSQL desde `infra/odoo`; ver sus instrucciones en `infra/odoo/README.md`.
 4. Configurar productos, impuestos, punto de venta, sesión y pago efectivo en Odoo.
-5. Ejecutar la API y el frontend según `backend/README.md` y `frontend/README.md`.
+5. Ejecutar la API y el frontend según `backend/README.md` y `frontend/README.md`. El modo demo funciona sin Odoo, se identifica claramente y no constituye evidencia P09.
 6. Ejecutar las pruebas con los comandos publicados en `tests/README.md`.
+
+La matriz de cumplimiento está en `docs/COMPLIANCE_MATRIX.md` y las decisiones justificadas en `docs/DESIGN_DECISIONS.md`.
+
+## Inicio local completo
+
+```powershell
+./infra/odoo/Initialize-LocalEnv.ps1
+docker compose --env-file .env -f infra/odoo/docker-compose.yml up -d
+./infra/odoo/Setup-IntegrationUser.ps1
+./infra/odoo/Setup-PosData.ps1
+./scripts/Run-Local.ps1
+python -m http.server 5173 --directory frontend/pos
+```
+
+La API key técnica caduca a los 89 días; vuelve a ejecutar `Setup-IntegrationUser.ps1` para rotarla.
 
 ## Estado de integración
 
-La integración real de ventas y pagos no se considera comprobada hasta registrar una operación contra la instancia local de Odoo y conservar respuesta HTTP, trazas sanitizadas e identificadores verificables. No se debe presentar un simulador como una operación real.
+La integración quedó comprobada contra la instancia local de Odoo: catálogo, sesión, venta, IVA incluido, pago efectivo e idempotencia. La matriz conserva el identificador verificable de la prueba P09.
 
 ## Aporte de Lara: Odoo, infraestructura y calidad
 
 - Adaptador HTTP tipado para Odoo JSON-2 con API key de servidor, validación de configuración y errores con resultado incierto para timeouts/HTTP 5xx.
 - Docker Compose de Odoo 20 y PostgreSQL 16 con variables locales y espera de salud de PostgreSQL.
 - Verificaciones locales del contrato HTTP y workflow de GitHub Actions.
-- Decisiones documentadas sobre integración, descuentos e idempotencia. Las políticas de descuentos e idempotencia permanecen como propuestas pendientes de implementación en Application.
-- La venta completa, el registro de pago y P09 requieren el host API, el contrato validado por el equipo y una instancia real de Odoo.
+- Decisiones documentadas e implementadas sobre integración, descuentos e idempotencia en Application.
+- Venta completa, pago e IVA incluidos validados con una instancia real de Odoo 20.

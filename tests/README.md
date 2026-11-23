@@ -14,15 +14,21 @@ Comprueban ruta y verbo JSON-2, encabezados de autenticacion y base de datos, se
 
 | ID | Caso | Estado |
 |---|---|---|
-| P01 | Venta sin productos | Pendiente de Application |
-| P02 | Cantidad cero o negativa | Pendiente de Application |
-| P03 | Sesion POS cerrada | Pendiente de Application/Odoo |
-| P04 | Producto no habilitado | Pendiente de Application/Odoo |
-| P05 | Error o timeout Odoo sin exito falso | Verificado parcialmente en el adaptador |
-| P06 | Idempotencia | Pendiente de persistencia y caso de uso |
-| P07 | Carrito y total | Pendiente de Application/frontend |
-| P08 | Error de API en frontend | Pendiente de frontend |
-| P09 | Venta real de dos productos y efectivo en Odoo | Pendiente de instancia local y evidencia verificable |
-| P10 | Cambio controlado de politica o integracion | Pendiente de acordar limites e integrar flujo |
+| P01–P04 | Reglas previas al envío | Verificadas en Application |
+| P05 | Error o timeout Odoo sin éxito falso | Verificado en el adaptador |
+| P06 | Idempotencia | Verificada en Application y contra Odoo real |
+| P07–P08 | Carrito, total y error comprensible | Verificados en frontend |
+| P09 | Venta real y efectivo en Odoo | Orden `260-2-000002`, estado `paid`, IVA y pago verificados |
+| P10 | Cambio controlado de política | Verificado con Strategy intercambiable |
 
-P09 es una prueba de integracion real y no se reemplaza por un mock. No debe declararse aprobada hasta confirmar la operacion y guardar identificadores de Odoo junto a evidencia sanitizada.
+P09 se ejecutó además de las suites automatizadas: la repetición de la clave devolvió el mismo ID Odoo `6` sin crear otra orden.
+
+## Todas las verificaciones automatizadas
+
+```powershell
+dotnet run --project tests/ProyectoPatrones.Application.Checks/ProyectoPatrones.Application.Checks.csproj --configuration Release
+dotnet run --project tests/ProyectoPatrones.Odoo.ContractChecks/ProyectoPatrones.Odoo.ContractChecks.csproj --configuration Release
+node frontend/pos/tests/frontend-checks.mjs
+```
+
+Resultado actual: 10 verificaciones de Application, 8 de contrato Odoo y 5 de frontend; 23/23 en total.

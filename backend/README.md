@@ -9,9 +9,15 @@ Implementar ASP.NET Core Web API con Clean Architecture reconocible:
 
 Contratos iniciales: `POST /api/auth/login`, `GET /api/products`, `GET /api/pos/sessions/active`, `POST /api/sales`, `GET /api/sales`, `GET /api/sales/{id}`.
 
-## Estado del host API
+## Host API
 
-El repositorio todavía no contiene el host de API ASP.NET Core. Este aporte agrega el proyecto de infraestructura y las verificaciones de contrato; el host y su composition root deben añadirse cuando el equipo cree `ProyectoPatrones.Api`.
+El host se encuentra en `src/ProyectoPatrones.Api` y expone los contratos de autenticación, productos, sesión, ventas, historial y detalle. Por defecto usa el adaptador Odoo real; `Pos__Mode=Demo` habilita explícitamente el adaptador local para pruebas aisladas.
+
+```powershell
+./scripts/Run-Local.ps1
+```
+
+URL: `http://localhost:5080`. Credenciales demo: `operator` / `pos-demo`.
 
 ## Adaptador Odoo JSON-2
 
@@ -39,4 +45,4 @@ El `.env` solo lo lee Docker Compose. Para cargar la misma configuración en el 
 dotnet build backend/src/ProyectoPatrones.Infrastructure.Odoo/ProyectoPatrones.Infrastructure.Odoo.csproj --configuration Release
 ```
 
-La compilación del adaptador no demuestra una venta real. La creación de `pos.order`, el registro del pago y P09 siguen pendientes hasta validar el contrato con una instancia Odoo del proyecto.
+La integración validada utiliza `pos.order.sync_from_ui`, conserva resultados inciertos y exige `Idempotency-Key`. La evidencia P09 está registrada en la matriz de cumplimiento.

@@ -6,5 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="../ProyectoPatrones.Application/ProyectoPatrones.Application.csproj" />
+    <ProjectReference Include="../ProyectoPatrones.Domain/ProyectoPatrones.Domain.csproj" />
   </ItemGroup>
 </Project>

@@ -16,3 +16,4 @@ secrets/
 *.log
 infra/odoo/data/
 infra/odoo/filestore/
+tmp/

@@ -12,6 +12,7 @@ var checks = new (string Name, Func<Task> Run)[]
     ("cancela la lectura de una respuesta con cuerpo lento", MarksSlowResponseBodyTimeoutUncertain),
     ("rechaza rutas de modelo o método manipuladas", RejectsInvalidPath),
     ("valida configuración obligatoria", ValidatesOptions)
+    ,("serializa el argumento orders para sync_from_ui", SerializesOrdersArgument)
 };
 
 var failures = 0;
@@ -101,6 +102,20 @@ static Task ValidatesOptions()
     var options = new OdooJson2Options { BaseUrl = "not-a-url", Database = "", ApiKey = "", TimeoutSeconds = 0 };
     Assert(!options.IsValid(out var error) && error.Contains("BaseUrl"), "La URL inválida debe rechazarse primero.");
     return Task.CompletedTask;
+}
+
+static async Task SerializesOrdersArgument()
+{
+    string? bodyText = null;
+    var handler = new StubHandler(request =>
+    {
+        bodyText = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+        return JsonResponse("{\"pos.order\":[]}");
+    });
+    var payload = new Dictionary<string, object> { ["orders"] = new object[] { new { uuid = "test" } } };
+    await CreateClient(handler).CallAsync<JsonElement>("pos.order", "sync_from_ui", payload);
+    using var body = JsonDocument.Parse(bodyText!);
+    Assert(body.RootElement.GetProperty("orders").GetArrayLength() == 1, "El argumento orders no llegó al cuerpo JSON.");
 }
 
 static OdooJson2Client CreateClient(HttpMessageHandler handler) => new(

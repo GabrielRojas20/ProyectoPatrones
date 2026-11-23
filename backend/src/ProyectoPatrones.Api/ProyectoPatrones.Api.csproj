@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../ProyectoPatrones.Application/ProyectoPatrones.Application.csproj" />
+    <ProjectReference Include="../ProyectoPatrones.Domain/ProyectoPatrones.Domain.csproj" />
+    <ProjectReference Include="../ProyectoPatrones.Infrastructure.Demo/ProyectoPatrones.Infrastructure.Demo.csproj" />
+    <ProjectReference Include="../ProyectoPatrones.Infrastructure.Odoo/ProyectoPatrones.Infrastructure.Odoo.csproj" />
+  </ItemGroup>
+</Project>
