@@ -53,6 +53,7 @@ builder.Services.AddScoped<IOdooGateway, OdooGateway>();
 builder.Services.AddSingleton<IDiscountPolicy>(_ => new MaximumDiscountPolicy(builder.Configuration.GetValue("Sales:MaximumDiscountPercent", 20m)));
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<CatalogService>();
+builder.Services.AddScoped<CustomerSearchService>();
 builder.Services.AddScoped<PosSessionService>();
 builder.Services.AddScoped<SaleService>();
 
@@ -87,6 +88,8 @@ app.MapPost("/api/auth/login", (LoginRequest request, AuthService service) => Re
 var secured = app.MapGroup("/api").RequireAuthorization("Operator");
 secured.MapGet("/products", (string? name, string? code, int page, int pageSize, CatalogService service, CancellationToken ct) =>
     service.SearchAsync(name, code, page, pageSize, ct)).WithTags("Products");
+secured.MapGet("/customers", (string? name, int page, int pageSize, CustomerSearchService service, CancellationToken ct) =>
+    service.SearchAsync(name, page, pageSize, ct)).WithTags("Customers");
 secured.MapGet("/pos/sessions/active", (PosSessionService service, CancellationToken ct) => service.GetActiveAsync(ct)).WithTags("POS");
 secured.MapPost("/sales", (HttpRequest http, CreateSaleRequest request, SaleService service, CancellationToken ct) =>
     service.CreateAsync(http.Headers["Idempotency-Key"].ToString(), request, ct)).WithTags("Sales");

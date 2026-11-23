@@ -7,13 +7,13 @@ public sealed record PagedResult<T>(IReadOnlyList<T> Items, int Page, int PageSi
     public int TotalPages => Total == 0 ? 0 : (int)Math.Ceiling((double)Total / PageSize);
 }
 
-public sealed record ProductDto(long Id, string Code, string Name, decimal Price, bool Available);
+public sealed record ProductDto(long Id, string Code, string Name, decimal Price, bool Available, decimal AvailableQuantity = 0);
 public sealed record PosSessionDto(long Id, string Name, bool IsOpen, IReadOnlyList<PaymentMethodDto> PaymentMethods);
 public sealed record PaymentMethodDto(long Id, string Name);
 public sealed record LoginRequest(string Username, string Password);
 public sealed record LoginResponse(string AccessToken, DateTimeOffset ExpiresAt, string TokenType = "Bearer");
 public sealed record CreateSaleLineRequest(long ProductId, int Quantity, decimal? ExpectedUnitPrice, decimal DiscountPercent = 0);
-public sealed record CustomerRequest(string? Identification, string? Email, string? Name);
+public sealed record CustomerRequest(string? Identification, string? Email, string? Name, long? PartnerId = null);
 public sealed record CustomerDto(long Id, string Name, string? Identification, string? Email);
 public sealed record CreateSaleRequest(DateOnly OperationDate, long SessionId, long PaymentMethodId,
     IReadOnlyList<CreateSaleLineRequest> Lines, CustomerRequest? Customer);
@@ -25,6 +25,7 @@ public interface IOdooGateway
     Task<IReadOnlyDictionary<long, ProductDto>> GetProductsByIdsAsync(IReadOnlyCollection<long> ids, CancellationToken ct);
     Task<PosSessionDto?> GetActiveSessionAsync(CancellationToken ct);
     Task<CustomerDto?> FindCustomerAsync(CustomerRequest customer, CancellationToken ct);
+    Task<PagedResult<CustomerDto>> SearchCustomersAsync(string name, int page, int pageSize, CancellationToken ct);
     Task<Sale> CreateSaleAsync(Sale sale, CancellationToken ct);
     Task<PagedResult<Sale>> GetSalesAsync(string? name, string? id, int page, int pageSize, CancellationToken ct);
     Task<Sale?> GetSaleAsync(string id, CancellationToken ct);
