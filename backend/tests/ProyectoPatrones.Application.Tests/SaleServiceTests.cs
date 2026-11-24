@@ -28,6 +28,47 @@ public sealed class SaleServiceTests
     }
 
     [Fact]
+    public async Task Rejects_quantity_above_40()
+    {
+        var (service, gateway) = CreateService();
+        var error = await Assert.ThrowsAsync<BusinessRuleException>(() => service.CreateAsync("key-max-qty", Request([new(1, 41, 10)]), TestContext.Current.CancellationToken));
+        Assert.Equal("sale.invalid_quantity", error.Code);
+        Assert.Equal(0, gateway.CreateCalls);
+    }
+
+    [Fact]
+    public async Task Rejects_invalid_customer_name_and_accepts_plus_email()
+    {
+        var (service, gateway) = CreateService();
+        var invalidName = Request([new(1, 1, 10)]) with { Customer = new("1712345678", "user@example.com", "Ana123 Pérez") };
+        var nameError = await Assert.ThrowsAsync<ApplicationException>(() => service.CreateAsync("key-name", invalidName, TestContext.Current.CancellationToken));
+        Assert.Equal("customer.invalid_name", nameError.Code);
+
+        var tooLongEmail = Request([new(1, 1, 10)]) with { Customer = new("1712345678", $"{new string('a', 30)}@example.com", "Ana Pérez") };
+        var emailError = await Assert.ThrowsAsync<ApplicationException>(() => service.CreateAsync("key-long-email", tooLongEmail, TestContext.Current.CancellationToken));
+        Assert.Equal("customer.invalid_email", emailError.Code);
+
+        var plusEmail = Request([new(1, 1, 10)]) with { Customer = new("1712345678", "ana+ventas@ejemplo.com", "Ana Pérez") };
+        var result = await service.CreateAsync("key-email-plus", plusEmail, TestContext.Current.CancellationToken);
+        Assert.Equal("confirmed", result.Status);
+        Assert.Equal(1, gateway.CreateCalls);
+    }
+
+    [Fact]
+    public async Task Concurrent_sales_cannot_sell_the_same_last_unit_twice()
+    {
+        var (service, gateway) = CreateService(stock: 1);
+        gateway.DecrementStockOnCreate = false;
+        var first = service.CreateAsync("stock-first", Request([new(1, 1, 10)]), TestContext.Current.CancellationToken);
+        var second = service.CreateAsync("stock-second", Request([new(1, 1, 10)]), TestContext.Current.CancellationToken);
+        var outcomes = await Task.WhenAll(first.ContinueWith(task => (task.IsCompletedSuccessfully, task.Exception?.GetBaseException())),
+            second.ContinueWith(task => (task.IsCompletedSuccessfully, task.Exception?.GetBaseException())));
+        Assert.Single(outcomes.Where(x => x.Item1));
+        Assert.Equal("sale.insufficient_stock", Assert.IsType<ApplicationException>(outcomes.Single(x => !x.Item1).Item2).Code);
+        Assert.Equal(1, gateway.CreateCalls);
+    }
+
+    [Fact]
     public async Task P03_Rejects_closed_session()
     {
         var (service, gateway) = CreateService(sessionOpen: false);
@@ -105,9 +146,9 @@ public sealed class SaleServiceTests
         Assert.Equal("sale.discount_not_authorized", error.Code);
     }
 
-    private static (SaleService Service, FakeGateway Gateway) CreateService(bool sessionOpen = true, bool productAvailable = true)
+    private static (SaleService Service, FakeGateway Gateway) CreateService(bool sessionOpen = true, bool productAvailable = true, decimal stock = 100)
     {
-        var gateway = new FakeGateway { SessionOpen = sessionOpen, ProductAvailable = productAvailable };
+        var gateway = new FakeGateway { SessionOpen = sessionOpen, ProductAvailable = productAvailable, Stock = stock };
         return (new(gateway, new MemoryStore(), new MaximumDiscountPolicy(20), new FakeClock()), gateway);
     }
 
@@ -137,6 +178,8 @@ public sealed class SaleServiceTests
         public bool SessionOpen { get; init; } = true;
         public bool ProductAvailable { get; init; } = true;
         public bool CustomerExists { get; set; } = true;
+        public bool DecrementStockOnCreate { get; set; } = true;
+        public decimal Stock { get; set; } = 100;
         public int CreateCalls { get; private set; }
         public Exception? CreateError { get; set; }
         public Task<PosSessionDto?> GetActiveSessionAsync(CancellationToken ct) => Task.FromResult<PosSessionDto?>(new(100, "Main", SessionOpen, [new(200, "Cash")]));
@@ -144,13 +187,16 @@ public sealed class SaleServiceTests
             Task.FromResult(CustomerExists
                 ? new CustomerDto(300, customer.Name ?? "Customer", customer.Identification, customer.Email)
                 : null);
-        public Task<IReadOnlyDictionary<long, ProductDto>> GetProductsByIdsAsync(IReadOnlyCollection<long> ids, CancellationToken ct) => Task.FromResult<IReadOnlyDictionary<long, ProductDto>>(ids.ToDictionary(x => x, x => new ProductDto(x, $"P{x}", "Product", 10, ProductAvailable)));
+        public Task<IReadOnlyDictionary<long, ProductDto>> GetProductsByIdsAsync(IReadOnlyCollection<long> ids, CancellationToken ct) => Task.FromResult<IReadOnlyDictionary<long, ProductDto>>(ids.ToDictionary(x => x, x => new ProductDto(x, $"P{x}", "Product", 10, ProductAvailable, Stock)));
         public Task<Sale> CreateSaleAsync(Sale sale, CancellationToken ct)
         {
             CreateCalls++;
             if (CreateError is not null) return Task.FromException<Sale>(CreateError);
+            if (DecrementStockOnCreate)
+                foreach (var line in sale.Lines) Stock -= line.Quantity;
             return Task.FromResult(sale with { Status = SaleStatus.Confirmed, ExternalId = "ODOO-42" });
         }
+        public Task<PagedResult<CustomerDto>> SearchCustomersAsync(string name, int page, int pageSize, CancellationToken ct) => Task.FromResult(new PagedResult<CustomerDto>([], page, pageSize, 0));
         public Task<PagedResult<ProductDto>> GetProductsAsync(string? name, string? code, int page, int pageSize, CancellationToken ct) => throw new NotImplementedException();
         public Task<PagedResult<Sale>> GetSalesAsync(string? name, string? id, int page, int pageSize, CancellationToken ct) => throw new NotImplementedException();
         public Task<Sale?> GetSaleAsync(string id, CancellationToken ct) => throw new NotImplementedException();

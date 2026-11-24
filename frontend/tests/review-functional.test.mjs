@@ -72,5 +72,13 @@ assert.match(vue, /sessionUnavailable \|\| !session/);
 assert.match(vue, /hasActiveSession\(active\)/);
 assert.match(html, /renderNoSession/);
 assert.match(html, /if \(!state\.session\?\.id\)/);
+for (const [name, source] of [['React', react], ['Vue', vue], ['HTML', html]]) {
+  assert.match(source, /Buscar cliente por nombre o apellidos|Buscar cliente/ , `${name}: búsqueda de clientes disponible`);
+  assert.match(source, /customerSearch|customer-search/, `${name}: búsqueda de cliente implementada`);
+  assert.match(source, /availableQuantity/, `${name}: control de existencias`);
+}
+assert.match(react, /window\.confirm/, 'React confirma al quitar productos');
+assert.match(vue, /window\.confirm/, 'Vue confirma al quitar productos');
+assert.match(html, /window\.confirm/, 'HTML confirma al quitar productos');
 
-console.log('Functional review checks: 15 passed');
+console.log('Functional review checks: 24 assertions passed');

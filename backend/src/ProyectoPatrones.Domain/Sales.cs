@@ -28,11 +28,14 @@ public static class SaleRules
         if (lines.Count == 0)
             throw new BusinessRuleException("sale.empty", "La venta debe contener al menos un producto.");
 
-        if (lines.Any(line => line.Quantity <= 0))
-            throw new BusinessRuleException("sale.invalid_quantity", "Todas las cantidades deben ser mayores que cero.");
+        if (lines.Any(line => line.Quantity is < 1 or > 40))
+            throw new BusinessRuleException("sale.invalid_quantity", "Cada cantidad debe estar entre 1 y 40 unidades.");
 
         if (lines.Any(line => line.UnitPrice < 0))
             throw new BusinessRuleException("sale.invalid_price", "Los precios no pueden ser negativos.");
+
+        if (lines.Any(line => line.DiscountPercent is < 0 or > 100))
+            throw new BusinessRuleException("sale.invalid_discount", "El descuento debe estar entre 0 % y 100 %.");
     }
 }
 

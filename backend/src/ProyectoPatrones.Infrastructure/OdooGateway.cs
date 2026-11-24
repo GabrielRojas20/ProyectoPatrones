@@ -15,7 +15,7 @@ public sealed class OdooGateway(IOdooJson2Client client) : IOdooGateway
         var records = await CallAsync<List<ProductRecord>>("product.product", "search_read", new
         {
             domain,
-            fields = new[] { "id", "default_code", "display_name", "lst_price", "available_in_pos", "active", "taxes_id" },
+            fields = new[] { "id", "default_code", "display_name", "lst_price", "available_in_pos", "active", "qty_available", "taxes_id" },
             offset = (page - 1) * pageSize,
             limit = pageSize,
             order = "default_code,id"
@@ -30,7 +30,7 @@ public sealed class OdooGateway(IOdooJson2Client client) : IOdooGateway
         var records = await CallAsync<List<ProductRecord>>("product.product", "search_read", new
         {
             domain = new object[] { new object[] { "id", "in", ids }, new object[] { "active", "=", true } },
-            fields = new[] { "id", "default_code", "display_name", "lst_price", "available_in_pos", "active", "taxes_id" },
+            fields = new[] { "id", "default_code", "display_name", "lst_price", "available_in_pos", "active", "qty_available", "taxes_id" },
             limit = ids.Count
         }, ct);
         return records.Select(MapProduct).ToDictionary(x => x.Id);
@@ -55,7 +55,8 @@ public sealed class OdooGateway(IOdooJson2Client client) : IOdooGateway
 
     public async Task<CustomerDto?> FindCustomerAsync(CustomerRequest customer, CancellationToken ct)
     {
-        object[] criterion = !string.IsNullOrWhiteSpace(customer.Identification) ? ["vat", "=", customer.Identification]
+        object[] criterion = customer.PartnerId is > 0 ? ["id", "=", customer.PartnerId.Value]
+            : !string.IsNullOrWhiteSpace(customer.Identification) ? ["vat", "=", customer.Identification]
             : !string.IsNullOrWhiteSpace(customer.Email) ? ["email", "=ilike", customer.Email]
             : ["name", "=ilike", customer.Name ?? string.Empty];
         var records = await CallAsync<List<CustomerRecord>>("res.partner", "search_read", new
@@ -66,6 +67,24 @@ public sealed class OdooGateway(IOdooJson2Client client) : IOdooGateway
         if (records.Count != 1) return null;
         var partner = records[0];
         return new(partner.Id, partner.Name, partner.Identification, partner.Email);
+    }
+
+    public async Task<PagedResult<CustomerDto>> SearchCustomersAsync(string name, int page, int pageSize, CancellationToken ct)
+    {
+        var terms = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var domain = new List<object> { new object[] { "active", "=", true } };
+        domain.AddRange(terms.Select(term => (object)new object[] { "name", "ilike", term }));
+        var records = await CallAsync<List<CustomerRecord>>("res.partner", "search_read", new
+        {
+            domain,
+            fields = new[] { "id", "name", "vat", "email" },
+            offset = (page - 1) * pageSize,
+            limit = pageSize,
+            order = "name,id"
+        }, ct);
+        var total = await CallAsync<int>("res.partner", "search_count", new { domain }, ct);
+        return new(records.Select(record => new CustomerDto(record.Id, record.Name,
+            record.Identification, record.Email)).ToArray(), page, pageSize, total);
     }
 
     public async Task<Sale> CreateSaleAsync(Sale sale, CancellationToken ct)
@@ -186,11 +205,14 @@ public sealed class OdooGateway(IOdooJson2Client client) : IOdooGateway
         {
             if (ex.IsTimeout)
                 throw new ApplicationException("odoo.timeout", "Odoo excedió el tiempo configurado; el resultado de la operación es desconocido.", 504);
-            throw new IntegrationException("odoo.request_failed", ex.Message, ex.OutcomeMayHaveBeenApplied, ex);
+            throw new IntegrationException("odoo.request_failed",
+                "Odoo rechazó la operación. Verifica los datos y permisos del punto de venta.",
+                ex.OutcomeMayHaveBeenApplied, ex);
         }
     }
 
-    private static ProductDto MapProduct(ProductRecord x) => new(x.Id, x.Code ?? string.Empty, x.Name ?? string.Empty, x.Price, x.Active && x.AvailableInPos);
+    private static ProductDto MapProduct(ProductRecord x) => new(x.Id, x.Code ?? string.Empty, x.Name ?? string.Empty,
+        x.Price, x.Active && x.AvailableInPos, Math.Max(0, x.AvailableQuantity));
     private static object[] ProductDomain(string? name, string? code)
     {
         var domain = new List<object> { new object[] { "active", "=", true }, new object[] { "available_in_pos", "=", true } };
@@ -225,6 +247,7 @@ public sealed class OdooGateway(IOdooJson2Client client) : IOdooGateway
         [property: JsonPropertyName("lst_price")] decimal Price = 0,
         [property: JsonPropertyName("available_in_pos")] bool AvailableInPos = false,
         bool Active = true,
+        [property: JsonPropertyName("qty_available")] decimal AvailableQuantity = 0,
         [property: JsonPropertyName("taxes_id")] long[]? TaxesIds = null);
     private sealed record TaxComputation(
         [property: JsonPropertyName("total_excluded")] decimal TotalExcluded,
